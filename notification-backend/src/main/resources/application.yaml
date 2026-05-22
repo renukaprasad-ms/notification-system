@@ -17,6 +17,17 @@ spring:
         format_sql: false
 
 app:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:900}
+    refresh-token-expiration-seconds: ${JWT_REFRESH_TOKEN_EXPIRATION_SECONDS:604800}
+    access-cookie-name: ${JWT_ACCESS_COOKIE_NAME:access_token}
+    refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refresh_token}
+    cookie-secure: ${JWT_COOKIE_SECURE:false}
+    cookie-same-site: ${JWT_COOKIE_SAME_SITE:Strict}
+  otp:
+    expiry-minutes: ${OTP_EXPIRY_MINUTES:5}
+    max-attempts: ${OTP_MAX_ATTEMPTS:5}
   seed:
     enabled: ${SEED_ENABLED:true}
     super-admin:

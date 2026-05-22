@@ -37,6 +37,13 @@ Thumbs.db
 *.tar
 *.tar.gz
 
+# Node / frontend
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
 # Docker/local runtime data
 docker-data/
 postgres-data/

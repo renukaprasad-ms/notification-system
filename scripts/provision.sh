@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$ROOT_DIR/infra/.env"
 POSTGRES_COMPOSE="$ROOT_DIR/infra/postgres.compose.yml"
 BACKEND_COMPOSE="$ROOT_DIR/infra/backend.compose.yml"
+FRONTEND_COMPOSE="$ROOT_DIR/infra/frontend.compose.yml"
 
 usage() {
   cat <<'USAGE'
@@ -12,11 +13,11 @@ Usage:
   ./scripts/provision.sh <command> [service]
 
 Commands:
-  up [all|postgres|backend]       Start services
-  build [all|postgres|backend]    Build or pull service images
-  restart [all|postgres|backend]  Restart services
-  logs [all|postgres|backend]     Follow service logs
-  stop [all|postgres|backend]     Stop services
+  up [all|postgres|backend|frontend]       Start services
+  build [all|postgres|backend|frontend]    Build or pull service images
+  restart [all|postgres|backend|frontend]  Restart services
+  logs [all|postgres|backend|frontend]     Follow service logs
+  stop [all|postgres|backend|frontend]     Stop services
   down                            Stop and remove infra containers
   status                          Show running infra services
 
@@ -42,13 +43,16 @@ compose_files_for() {
 
   case "$service" in
     all)
-      echo "-f $POSTGRES_COMPOSE -f $BACKEND_COMPOSE"
+      echo "-f $POSTGRES_COMPOSE -f $BACKEND_COMPOSE -f $FRONTEND_COMPOSE"
       ;;
     postgres)
       echo "-f $POSTGRES_COMPOSE"
       ;;
     backend)
       echo "-f $BACKEND_COMPOSE"
+      ;;
+    frontend)
+      echo "-f $FRONTEND_COMPOSE"
       ;;
     *)
       echo "Unknown service: $service" >&2

@@ -141,12 +141,28 @@ public class OtpVerification {
         this.consumedAt = consumedAt;
     }
 
+    public boolean isConsumed() {
+        return consumedAt != null;
+    }
+
+    public boolean isExpired() {
+        return expiresAt.isBefore(LocalDateTime.now());
+    }
+
     public int getAttemptCount() {
         return attemptCount;
     }
 
     public void setAttemptCount(int attemptCount) {
         this.attemptCount = attemptCount;
+    }
+
+    public void incrementAttemptCount() {
+        this.attemptCount++;
+    }
+
+    public boolean isMaxAttemptsReached() {
+        return attemptCount >= maxAttempts;
     }
 
     public int getMaxAttempts() {
@@ -159,5 +175,13 @@ public class OtpVerification {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public void markVerified() {
+        this.verifiedAt = LocalDateTime.now();
+    }
+
+    public void markConsumed() {
+        this.consumedAt = LocalDateTime.now();
     }
 }
