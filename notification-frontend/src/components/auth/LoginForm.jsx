@@ -1,10 +1,14 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { FaBell, FaEnvelope, FaEye, FaEyeSlash, FaKey, FaLock } from 'react-icons/fa6'
-import { loginUserWithPassword, sendOtpForLogin, verifyOtpForLogin } from '../../services/authService'
+import { sendOtpForLogin } from '../../services/authService'
+import { useAuth } from '../../hooks/useAuth'
+import { getApiErrorMessage } from '../../utils/apiError'
 
 function LoginForm() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { loginWithPassword, loginWithOtp } = useAuth()
   const [loginType, setLoginType] = useState('password')
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
@@ -39,7 +43,7 @@ function LoginForm() {
       await sendOtpForLogin({ email: formData.email })
       setMessage('OTP sent to your email.')
     } catch (apiError) {
-      setError(apiError.response?.data?.message || 'Unable to send OTP. Please try again.')
+      setError(getApiErrorMessage(apiError, 'Unable to send OTP. Please try again.'))
     } finally {
       setIsSendingOtp(false)
     }
@@ -53,20 +57,20 @@ function LoginForm() {
 
     try {
       if (loginType === 'password') {
-        await loginUserWithPassword({
+        await loginWithPassword({
           email: formData.email,
           password: formData.password,
         })
       } else {
-        await verifyOtpForLogin({
+        await loginWithOtp({
           email: formData.email,
           otp: formData.otp,
         })
       }
 
-      navigate('/dashboard', { replace: true })
+      navigate(location.state?.from?.pathname || '/dashboard', { replace: true })
     } catch (apiError) {
-      setError(apiError.response?.data?.message || 'Login failed. Please check your details.')
+      setError(getApiErrorMessage(apiError, 'Login failed. Please check your details.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -189,6 +193,14 @@ function LoginForm() {
               >
                 {isSendingOtp ? 'Sending OTP...' : 'Send OTP'}
               </button>
+            )}
+
+            {loginType === 'password' && (
+              <div className="flex justify-end">
+                <Link to="/forgot-password" className="text-sm font-semibold text-cyan-700 hover:text-cyan-800">
+                  Forgot password?
+                </Link>
+              </div>
             )}
 
             {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>}

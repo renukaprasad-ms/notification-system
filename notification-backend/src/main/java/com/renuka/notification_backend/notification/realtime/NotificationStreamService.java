@@ -13,26 +13,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
 public class NotificationStreamService {
 
     private static final long SSE_TIMEOUT_MS = 30 * 60 * 1000L;
 
-    private final Map<UUID, CopyOnWriteArrayList<SseEmitter>> emittersByUserId = new ConcurrentHashMap<>();
+    private final Map<UUID, Map<String, SseEmitter>> emittersByUserId = new ConcurrentHashMap<>();
 
-    public SseEmitter subscribe(User user) {
+    public SseEmitter subscribe(User user, String clientId) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
         UUID userId = user.getId();
 
-        emittersByUserId.computeIfAbsent(userId, ignored -> new CopyOnWriteArrayList<>()).add(emitter);
+        Map<String, SseEmitter> userEmitters = emittersByUserId.computeIfAbsent(userId, ignored -> new ConcurrentHashMap<>());
+        SseEmitter previousEmitter = userEmitters.put(clientId, emitter);
+        if (previousEmitter != null) {
+            previousEmitter.complete();
+        }
 
-        emitter.onCompletion(() -> removeEmitter(userId, emitter));
-        emitter.onTimeout(() -> removeEmitter(userId, emitter));
-        emitter.onError(error -> removeEmitter(userId, emitter));
+        emitter.onCompletion(() -> removeEmitter(userId, clientId, emitter));
+        emitter.onTimeout(() -> removeEmitter(userId, clientId, emitter));
+        emitter.onError(error -> removeEmitter(userId, clientId, emitter));
 
-        sendToEmitter(userId, emitter, "connected", "connected");
+        sendToEmitter(userId, clientId, emitter, "connected", "connected");
         return emitter;
     }
 
@@ -43,7 +46,7 @@ public class NotificationStreamService {
     }
 
     private NotificationPublishResult publish(NotificationRecipient recipient) {
-        CopyOnWriteArrayList<SseEmitter> emitters = emittersByUserId.get(recipient.getUser().getId());
+        Map<String, SseEmitter> emitters = emittersByUserId.get(recipient.getUser().getId());
         if (emitters == null || emitters.isEmpty()) {
             return NotificationPublishResult.failed(recipient.getId(), "No active SSE connection");
         }
@@ -52,8 +55,14 @@ public class NotificationStreamService {
         int deliveredCount = 0;
         String lastErrorMessage = null;
 
-        for (SseEmitter emitter : emitters) {
-            boolean delivered = sendToEmitter(recipient.getUser().getId(), emitter, "notification", event);
+        for (Map.Entry<String, SseEmitter> emitterEntry : emitters.entrySet()) {
+            boolean delivered = sendToEmitter(
+                    recipient.getUser().getId(),
+                    emitterEntry.getKey(),
+                    emitterEntry.getValue(),
+                    "notification",
+                    event
+            );
             if (delivered) {
                 deliveredCount++;
             } else {
@@ -81,23 +90,23 @@ public class NotificationStreamService {
         );
     }
 
-    private boolean sendToEmitter(UUID userId, SseEmitter emitter, String eventName, Object data) {
+    private boolean sendToEmitter(UUID userId, String clientId, SseEmitter emitter, String eventName, Object data) {
         try {
             emitter.send(SseEmitter.event().name(eventName).data(data));
             return true;
         } catch (IOException | IllegalStateException exception) {
-            removeEmitter(userId, emitter);
+            removeEmitter(userId, clientId, emitter);
             return false;
         }
     }
 
-    private void removeEmitter(UUID userId, SseEmitter emitter) {
-        CopyOnWriteArrayList<SseEmitter> emitters = emittersByUserId.get(userId);
+    private void removeEmitter(UUID userId, String clientId, SseEmitter emitter) {
+        Map<String, SseEmitter> emitters = emittersByUserId.get(userId);
         if (emitters == null) {
             return;
         }
 
-        emitters.remove(emitter);
+        emitters.computeIfPresent(clientId, (ignored, currentEmitter) -> currentEmitter == emitter ? null : currentEmitter);
         if (emitters.isEmpty()) {
             emittersByUserId.remove(userId);
         }

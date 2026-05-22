@@ -2,13 +2,12 @@ package com.renuka.notification_backend.auth.service;
 
 import com.renuka.notification_backend.auth.dto.CreateUserRequest;
 import com.renuka.notification_backend.auth.dto.ForgotPasswordOtpRequest;
-import com.renuka.notification_backend.auth.dto.ForgotPasswordOtpResponse;
 import com.renuka.notification_backend.auth.dto.LoginOtpRequest;
-import com.renuka.notification_backend.auth.dto.LoginOtpResponse;
 import com.renuka.notification_backend.auth.dto.LoginRequest;
 import com.renuka.notification_backend.auth.dto.LoginResponse;
 import com.renuka.notification_backend.auth.dto.LoginType;
 import com.renuka.notification_backend.auth.dto.ResetPasswordRequest;
+import com.renuka.notification_backend.auth.otp.OtpDeliveryService;
 import com.renuka.notification_backend.auth.otp.OtpPurpose;
 import com.renuka.notification_backend.auth.otp.OtpService;
 import com.renuka.notification_backend.common.exception.BadRequestException;
@@ -40,6 +39,7 @@ public class AuthService {
     private final UserRoleRepository userRoleRepository;
     private final PasswordHashService passwordHashService;
     private final OtpService otpService;
+    private final OtpDeliveryService otpDeliveryService;
     private final JwtService jwtService;
 
     public AuthService(
@@ -48,6 +48,7 @@ public class AuthService {
             UserRoleRepository userRoleRepository,
             PasswordHashService passwordHashService,
             OtpService otpService,
+            OtpDeliveryService otpDeliveryService,
             JwtService jwtService
     ) {
         this.userRepository = userRepository;
@@ -55,6 +56,7 @@ public class AuthService {
         this.userRoleRepository = userRoleRepository;
         this.passwordHashService = passwordHashService;
         this.otpService = otpService;
+        this.otpDeliveryService = otpDeliveryService;
         this.jwtService = jwtService;
     }
 
@@ -103,7 +105,7 @@ public class AuthService {
     }
 
     @Transactional
-    public LoginOtpResponse createLoginOtp(LoginOtpRequest request) {
+    public void createLoginOtp(LoginOtpRequest request) {
         String email = request.getEmail().trim().toLowerCase();
 
         User user = userRepository.findByEmail(email)
@@ -114,11 +116,11 @@ public class AuthService {
         }
 
         String otp = otpService.createOtp(user, user.getEmail(), OtpPurpose.LOGIN);
-        return new LoginOtpResponse(otp);
+        otpDeliveryService.sendOtp(user.getEmail(), OtpPurpose.LOGIN, otp);
     }
 
     @Transactional
-    public ForgotPasswordOtpResponse createPasswordResetOtp(ForgotPasswordOtpRequest request) {
+    public void createPasswordResetOtp(ForgotPasswordOtpRequest request) {
         String email = request.getEmail().trim().toLowerCase();
 
         User user = userRepository.findByEmail(email)
@@ -129,7 +131,7 @@ public class AuthService {
         }
 
         String otp = otpService.createOtp(user, user.getEmail(), OtpPurpose.PASSWORD_RESET);
-        return new ForgotPasswordOtpResponse(otp);
+        otpDeliveryService.sendOtp(user.getEmail(), OtpPurpose.PASSWORD_RESET, otp);
     }
 
     @Transactional

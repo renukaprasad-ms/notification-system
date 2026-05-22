@@ -1,0 +1,48 @@
+import apiClient from './axios'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
+const STREAM_CLIENT_ID_KEY = 'notification_stream_client_id'
+
+export const sendNotificationToAll = (payload) => {
+  return apiClient.post('/notifications/send-all', payload)
+}
+
+export const sendNotificationToSelected = (payload) => {
+  return apiClient.post('/notifications/send-selected', payload)
+}
+
+export const getMyNotifications = () => {
+  return apiClient.get('/notifications/me')
+}
+
+export const getUnreadNotificationCount = () => {
+  return apiClient.get('/notifications/me/unread-count')
+}
+
+export const getAdminNotificationOverview = () => {
+  return apiClient.get('/notifications/admin/overview')
+}
+
+export const markNotificationViewed = (recipientId) => {
+  return apiClient.patch(`/notifications/${recipientId}/viewed`)
+}
+
+export const markNotificationRead = (recipientId) => {
+  return apiClient.patch(`/notifications/${recipientId}/read`)
+}
+
+export const getNotificationStreamUrl = () => {
+  if (typeof window === 'undefined') {
+    return `${API_BASE_URL}/notifications/stream`
+  }
+
+  let clientId = window.sessionStorage.getItem(STREAM_CLIENT_ID_KEY)
+  if (!clientId) {
+    clientId = window.crypto?.randomUUID?.() || `client-${Date.now()}-${Math.random().toString(16).slice(2)}`
+    window.sessionStorage.setItem(STREAM_CLIENT_ID_KEY, clientId)
+  }
+
+  const streamUrl = new URL(`${API_BASE_URL}/notifications/stream`)
+  streamUrl.searchParams.set('clientId', clientId)
+  return streamUrl.toString()
+}

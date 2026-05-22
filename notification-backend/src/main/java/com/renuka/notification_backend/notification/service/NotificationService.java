@@ -3,6 +3,7 @@ package com.renuka.notification_backend.notification.service;
 import com.renuka.notification_backend.common.exception.BadRequestException;
 import com.renuka.notification_backend.common.exception.NotFoundException;
 import com.renuka.notification_backend.common.exception.UnauthorizedException;
+import com.renuka.notification_backend.notification.dto.AdminNotificationOverviewResponse;
 import com.renuka.notification_backend.notification.dto.SendAllNotificationRequest;
 import com.renuka.notification_backend.notification.dto.SendNotificationResponse;
 import com.renuka.notification_backend.notification.dto.SendSelectedNotificationRequest;
@@ -105,7 +106,16 @@ public class NotificationService {
 
     public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamNotifications(String userEmail) {
         User user = getActiveUser(userEmail);
-        return notificationStreamService.subscribe(user);
+        return notificationStreamService.subscribe(user, "default");
+    }
+
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamNotifications(String userEmail, String clientId) {
+        User user = getActiveUser(userEmail);
+        if (clientId == null || clientId.isBlank()) {
+            throw new BadRequestException("Client id is required for notification streaming");
+        }
+
+        return notificationStreamService.subscribe(user, clientId.trim());
     }
 
     @Transactional
@@ -152,6 +162,15 @@ public class NotificationService {
     public UnreadCountResponse getUnreadCount(String userEmail) {
         User user = getActiveUser(userEmail);
         return new UnreadCountResponse(notificationRecipientRepository.countByUserIdAndReadAtIsNull(user.getId()));
+    }
+
+    @Transactional
+    public AdminNotificationOverviewResponse getAdminOverview(String adminEmail) {
+        User admin = getActiveUser(adminEmail);
+        long notificationsSent = notificationRepository.countByCreatedById(admin.getId());
+        long activeUsers = userRepository.findByActiveTrue().size();
+
+        return new AdminNotificationOverviewResponse(notificationsSent, activeUsers);
     }
 
     private NotificationRecipient toRecipient(Notification notification, User user) {

@@ -1,6 +1,7 @@
 package com.renuka.notification_backend.user.service;
 
 import com.renuka.notification_backend.common.exception.UnauthorizedException;
+import com.renuka.notification_backend.user.dto.AdminUserResponse;
 import com.renuka.notification_backend.user.dto.UserProfileResponse;
 import com.renuka.notification_backend.user.entity.User;
 import com.renuka.notification_backend.user.repository.UserRepository;
@@ -42,5 +43,27 @@ public class UserService {
                 user.isEmailVerified(),
                 roles
         );
+    }
+
+    @Transactional
+    public List<AdminUserResponse> getAllUsersForAdmin() {
+        return userRepository.findAll()
+                .stream()
+                .map(user -> new AdminUserResponse(
+                        user.getId(),
+                        user.getEmail(),
+                        user.getFullName(),
+                        user.isEmailVerified(),
+                        user.isActive(),
+                        getRoles(user.getId())
+                ))
+                .toList();
+    }
+
+    private List<String> getRoles(java.util.UUID userId) {
+        return userRoleRepository.findByIdUserId(userId)
+                .stream()
+                .map(userRole -> userRole.getRole().getName().name())
+                .toList();
     }
 }

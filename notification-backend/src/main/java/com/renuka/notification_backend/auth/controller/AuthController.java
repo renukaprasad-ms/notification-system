@@ -2,9 +2,7 @@ package com.renuka.notification_backend.auth.controller;
 
 import com.renuka.notification_backend.auth.dto.CreateUserRequest;
 import com.renuka.notification_backend.auth.dto.ForgotPasswordOtpRequest;
-import com.renuka.notification_backend.auth.dto.ForgotPasswordOtpResponse;
 import com.renuka.notification_backend.auth.dto.LoginOtpRequest;
-import com.renuka.notification_backend.auth.dto.LoginOtpResponse;
 import com.renuka.notification_backend.auth.dto.LoginRequest;
 import com.renuka.notification_backend.auth.dto.LoginResponse;
 import com.renuka.notification_backend.auth.dto.ResetPasswordRequest;
@@ -63,23 +61,23 @@ public class AuthController {
     }
 
     @PostMapping("/login/otp")
-    public ResponseEntity<ApiResponse<LoginOtpResponse>> createLoginOtp(@Valid @RequestBody LoginOtpRequest request) {
-        LoginOtpResponse response = authService.createLoginOtp(request);
+    public ResponseEntity<ApiResponse<Void>> createLoginOtp(@Valid @RequestBody LoginOtpRequest request) {
+        authService.createLoginOtp(request);
 
         return ResponseEntity
                 .status(HttpStatus.OK)
-                .body(ApiResponse.success(HttpStatus.OK.value(), response, "Login OTP created successfully"));
+                .body(ApiResponse.success(HttpStatus.OK.value(), "Login OTP created successfully"));
     }
 
     @PostMapping("/forgot-password/otp")
-    public ResponseEntity<ApiResponse<ForgotPasswordOtpResponse>> createPasswordResetOtp(
+    public ResponseEntity<ApiResponse<Void>> createPasswordResetOtp(
             @Valid @RequestBody ForgotPasswordOtpRequest request
     ) {
-        ForgotPasswordOtpResponse response = authService.createPasswordResetOtp(request);
+        authService.createPasswordResetOtp(request);
 
         return ResponseEntity
                 .status(HttpStatus.OK)
-                .body(ApiResponse.success(HttpStatus.OK.value(), response, "Password reset OTP created successfully"));
+                .body(ApiResponse.success(HttpStatus.OK.value(), "Password reset OTP created successfully"));
     }
 
     @PostMapping("/reset-password")

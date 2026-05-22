@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FaBell, FaEnvelope, FaEye, FaEyeSlash, FaLock, FaUser } from 'react-icons/fa6'
-import { signupUser } from '../../services/authService'
+import { useAuth } from '../../hooks/useAuth'
+import { getApiErrorMessage } from '../../utils/apiError'
 
 function RegisterForm() {
   const navigate = useNavigate()
+  const { signup } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [formData, setFormData] = useState({
@@ -35,7 +37,7 @@ function RegisterForm() {
     setIsSubmitting(true)
 
     try {
-      await signupUser({
+      await signup({
         email: formData.email,
         password: formData.password,
         fullName: formData.fullName,
@@ -43,7 +45,7 @@ function RegisterForm() {
 
       navigate('/dashboard', { replace: true })
     } catch (apiError) {
-      setError(apiError.response?.data?.message || 'Signup failed. Please check your details.')
+      setError(getApiErrorMessage(apiError, 'Signup failed. Please check your details.'))
     } finally {
       setIsSubmitting(false)
     }
