@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: notification-backend
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+app:
+  seed:
+    enabled: ${SEED_ENABLED:true}
+    super-admin:
+      email: ${SUPER_ADMIN_EMAIL:admin@example.com}
+      password: ${SUPER_ADMIN_PASSWORD:Admin@12345}
+      full-name: ${SUPER_ADMIN_FULL_NAME:Super Admin}

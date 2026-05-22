@@ -1,0 +1,24 @@
+services:
+  notification-backend:
+    build:
+      context: ..
+      dockerfile: infra/backend.Dockerfile
+    container_name: notification-backend
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      DB_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      SEED_ENABLED: ${SEED_ENABLED:-true}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@example.com}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-Admin@12345}
+      SUPER_ADMIN_FULL_NAME: ${SUPER_ADMIN_FULL_NAME:-Super Admin}
+      JAVA_OPTS: ${JAVA_OPTS:-}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    networks:
+      - notification-network
+
+networks:
+  notification-network:
+    name: notification-network

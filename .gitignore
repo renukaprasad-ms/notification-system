@@ -1,0 +1,46 @@
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+infra/.env
+notification-backend/.env
+
+# Java / Maven
+target/
+build/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.jar
+
+# Spring Boot
+*.log
+logs/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated archives and local bundles
+*.zip
+*.tar
+*.tar.gz
+
+# Docker/local runtime data
+docker-data/
+postgres-data/
+
+# Codex/local agent metadata
+.codex/
+.agents/
