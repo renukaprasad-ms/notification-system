@@ -5,6 +5,9 @@ services:
       dockerfile: infra/backend.Dockerfile
     container_name: notification-backend
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
       DB_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required}
@@ -22,6 +25,7 @@ services:
       JWT_REFRESH_COOKIE_NAME: ${JWT_REFRESH_COOKIE_NAME:-refresh_token}
       JWT_COOKIE_SECURE: ${JWT_COOKIE_SECURE:-false}
       JWT_COOKIE_SAME_SITE: ${JWT_COOKIE_SAME_SITE:-Strict}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
       JAVA_OPTS: ${JAVA_OPTS:-}
     ports:
       - "${BACKEND_PORT:-8080}:8080"

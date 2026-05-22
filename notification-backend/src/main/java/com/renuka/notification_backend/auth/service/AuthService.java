@@ -1,13 +1,27 @@
 package com.renuka.notification_backend.auth.service;
 
+import com.renuka.notification_backend.auth.dto.CreateUserRequest;
+import com.renuka.notification_backend.auth.dto.ForgotPasswordOtpRequest;
+import com.renuka.notification_backend.auth.dto.ForgotPasswordOtpResponse;
+import com.renuka.notification_backend.auth.dto.LoginOtpRequest;
+import com.renuka.notification_backend.auth.dto.LoginOtpResponse;
 import com.renuka.notification_backend.auth.dto.LoginRequest;
 import com.renuka.notification_backend.auth.dto.LoginResponse;
 import com.renuka.notification_backend.auth.dto.LoginType;
+import com.renuka.notification_backend.auth.dto.ResetPasswordRequest;
 import com.renuka.notification_backend.auth.otp.OtpPurpose;
 import com.renuka.notification_backend.auth.otp.OtpService;
 import com.renuka.notification_backend.common.exception.BadRequestException;
+import com.renuka.notification_backend.common.exception.ConflictException;
 import com.renuka.notification_backend.common.exception.UnauthorizedException;
+import com.renuka.notification_backend.security.jwt.JwtClaims;
+import com.renuka.notification_backend.security.jwt.JwtService;
+import com.renuka.notification_backend.security.jwt.JwtTokenType;
+import com.renuka.notification_backend.user.entity.Role;
+import com.renuka.notification_backend.user.entity.RoleName;
 import com.renuka.notification_backend.user.entity.User;
+import com.renuka.notification_backend.user.entity.UserRole;
+import com.renuka.notification_backend.user.repository.RoleRepository;
 import com.renuka.notification_backend.user.repository.UserRepository;
 import com.renuka.notification_backend.user.repository.UserRoleRepository;
 import jakarta.transaction.Transactional;
@@ -22,20 +36,48 @@ public class AuthService {
     private static final String INVALID_CREDENTIALS_MESSAGE = "Invalid email or password";
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final PasswordHashService passwordHashService;
     private final OtpService otpService;
+    private final JwtService jwtService;
 
     public AuthService(
             UserRepository userRepository,
+            RoleRepository roleRepository,
             UserRoleRepository userRoleRepository,
             PasswordHashService passwordHashService,
-            OtpService otpService
+            OtpService otpService,
+            JwtService jwtService
     ) {
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
         this.passwordHashService = passwordHashService;
         this.otpService = otpService;
+        this.jwtService = jwtService;
+    }
+
+    @Transactional
+    public LoginResult createUser(CreateUserRequest request) {
+        String email = request.getEmail().trim().toLowerCase();
+
+        if (userRepository.existsByEmail(email)) {
+            throw new ConflictException("Email is already registered");
+        }
+
+        User user = new User();
+        user.setEmail(email);
+        user.setFullName(request.getFullName().trim());
+        user.setPasswordHash(passwordHashService.hashPassword(request.getPassword()));
+        user.setEmailVerified(true);
+        user.setActive(true);
+
+        User savedUser = userRepository.save(user);
+        Role userRole = getOrCreateUserRole();
+        userRoleRepository.save(new UserRole(savedUser, userRole));
+
+        return new LoginResult(savedUser, toLoginResponse(savedUser));
     }
 
     @Transactional
@@ -58,6 +100,83 @@ public class AuthService {
         }
 
         return new LoginResult(user, toLoginResponse(user));
+    }
+
+    @Transactional
+    public LoginOtpResponse createLoginOtp(LoginOtpRequest request) {
+        String email = request.getEmail().trim().toLowerCase();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE));
+
+        if (!user.isActive()) {
+            throw new UnauthorizedException("User account is inactive");
+        }
+
+        String otp = otpService.createOtp(user, user.getEmail(), OtpPurpose.LOGIN);
+        return new LoginOtpResponse(otp);
+    }
+
+    @Transactional
+    public ForgotPasswordOtpResponse createPasswordResetOtp(ForgotPasswordOtpRequest request) {
+        String email = request.getEmail().trim().toLowerCase();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UnauthorizedException("Invalid email"));
+
+        if (!user.isActive()) {
+            throw new UnauthorizedException("User account is inactive");
+        }
+
+        String otp = otpService.createOtp(user, user.getEmail(), OtpPurpose.PASSWORD_RESET);
+        return new ForgotPasswordOtpResponse(otp);
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        String email = request.getEmail().trim().toLowerCase();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UnauthorizedException("Invalid password reset request"));
+
+        if (!user.isActive()) {
+            throw new UnauthorizedException("User account is inactive");
+        }
+
+        otpService.verifyOtp(user.getEmail(), OtpPurpose.PASSWORD_RESET, request.getOtp());
+        user.setPasswordHash(passwordHashService.hashPassword(request.getNewPassword()));
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public LoginResult refresh(String refreshToken) {
+        if (!StringUtils.hasText(refreshToken)) {
+            throw new UnauthorizedException("Refresh token is required");
+        }
+
+        JwtClaims claims = jwtService.validateToken(refreshToken, JwtTokenType.REFRESH)
+                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+
+        User user = userRepository.findByEmail(claims.subject())
+                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+
+        if (!user.isActive()) {
+            throw new UnauthorizedException("User account is inactive");
+        }
+
+        return new LoginResult(user, toLoginResponse(user));
+    }
+
+    @Transactional
+    public LoginResponse currentUser(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UnauthorizedException("Authentication is required"));
+
+        if (!user.isActive()) {
+            throw new UnauthorizedException("User account is inactive");
+        }
+
+        return toLoginResponse(user);
     }
 
     private void loginWithPassword(LoginRequest request, User user) {
@@ -94,6 +213,16 @@ public class AuthService {
                 .toList();
 
         return new LoginResponse(user.getId(), user.getEmail(), user.getFullName(), roles);
+    }
+
+    private Role getOrCreateUserRole() {
+        return roleRepository.findByName(RoleName.USER)
+                .orElseGet(() -> {
+                    Role role = new Role();
+                    role.setName(RoleName.USER);
+                    role.setDescription("Default application user");
+                    return roleRepository.save(role);
+                });
     }
 
     public record LoginResult(User user, LoginResponse response) {

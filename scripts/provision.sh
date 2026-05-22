@@ -49,10 +49,34 @@ compose_files_for() {
       echo "-f $POSTGRES_COMPOSE"
       ;;
     backend)
-      echo "-f $BACKEND_COMPOSE"
+      echo "-f $POSTGRES_COMPOSE -f $BACKEND_COMPOSE"
       ;;
     frontend)
       echo "-f $FRONTEND_COMPOSE"
+      ;;
+    *)
+      echo "Unknown service: $service" >&2
+      usage
+      exit 1
+      ;;
+  esac
+}
+
+compose_service_name_for() {
+  local service="${1:-all}"
+
+  case "$service" in
+    postgres)
+      echo "postgres"
+      ;;
+    backend)
+      echo "notification-backend"
+      ;;
+    frontend)
+      echo "notification-frontend"
+      ;;
+    all)
+      echo ""
       ;;
     *)
       echo "Unknown service: $service" >&2
@@ -82,19 +106,41 @@ ensure_env_file
 
 case "$command" in
   up)
-    compose "$service" up -d
+    if [[ "$service" == "backend" ]]; then
+      compose "$service" up -d postgres notification-backend
+    elif [[ "$service" == "all" ]]; then
+      compose "$service" up -d
+    else
+      compose "$service" up -d "$(compose_service_name_for "$service")"
+    fi
     ;;
   build)
-    compose "$service" build
+    if [[ "$service" == "all" ]]; then
+      compose "$service" build
+    else
+      compose "$service" build "$(compose_service_name_for "$service")"
+    fi
     ;;
   restart)
-    compose "$service" restart
+    if [[ "$service" == "all" ]]; then
+      compose "$service" restart
+    else
+      compose "$service" restart "$(compose_service_name_for "$service")"
+    fi
     ;;
   logs)
-    compose "$service" logs -f
+    if [[ "$service" == "all" ]]; then
+      compose "$service" logs -f
+    else
+      compose "$service" logs -f "$(compose_service_name_for "$service")"
+    fi
     ;;
   stop)
-    compose "$service" stop
+    if [[ "$service" == "all" ]]; then
+      compose "$service" stop
+    else
+      compose "$service" stop "$(compose_service_name_for "$service")"
+    fi
     ;;
   down)
     compose all down
