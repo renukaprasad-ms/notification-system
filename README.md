@@ -133,6 +133,13 @@ Default local URLs:
 - frontend: `http://localhost:5173`
 - backend: `http://localhost:8080`
 
+Default seeded admin credentials:
+
+- email: `admin@example.com`
+- password: `Admin@12345`
+
+If you changed `SUPER_ADMIN_EMAIL` or `SUPER_ADMIN_PASSWORD` in `infra/.env` or Kubernetes secrets/config, use those values instead.
+
 ## Test And Build Checks
 
 Backend:
