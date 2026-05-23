@@ -10,6 +10,7 @@ import com.renuka.notification_backend.auth.dto.ResetPasswordRequest;
 import com.renuka.notification_backend.auth.otp.OtpDeliveryService;
 import com.renuka.notification_backend.auth.otp.OtpPurpose;
 import com.renuka.notification_backend.auth.otp.OtpService;
+import com.renuka.notification_backend.common.utils.RedisRateLimitService;
 import com.renuka.notification_backend.common.exception.BadRequestException;
 import com.renuka.notification_backend.common.exception.ConflictException;
 import com.renuka.notification_backend.common.exception.UnauthorizedException;
@@ -27,6 +28,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
 import java.util.List;
 
 @Service
@@ -41,6 +43,10 @@ public class AuthService {
     private final OtpService otpService;
     private final OtpDeliveryService otpDeliveryService;
     private final JwtService jwtService;
+    private final RedisRateLimitService redisRateLimitService;
+    private final long loginOtpLimit;
+    private final long passwordResetOtpLimit;
+    private final Duration otpRateLimitWindow;
 
     public AuthService(
             UserRepository userRepository,
@@ -49,7 +55,11 @@ public class AuthService {
             PasswordHashService passwordHashService,
             OtpService otpService,
             OtpDeliveryService otpDeliveryService,
-            JwtService jwtService
+            JwtService jwtService,
+            RedisRateLimitService redisRateLimitService,
+            @org.springframework.beans.factory.annotation.Value("${app.rate-limit.otp.login.limit:5}") long loginOtpLimit,
+            @org.springframework.beans.factory.annotation.Value("${app.rate-limit.otp.password-reset.limit:5}") long passwordResetOtpLimit,
+            @org.springframework.beans.factory.annotation.Value("${app.rate-limit.otp.window-minutes:15}") long otpRateLimitWindowMinutes
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -58,6 +68,10 @@ public class AuthService {
         this.otpService = otpService;
         this.otpDeliveryService = otpDeliveryService;
         this.jwtService = jwtService;
+        this.redisRateLimitService = redisRateLimitService;
+        this.loginOtpLimit = loginOtpLimit;
+        this.passwordResetOtpLimit = passwordResetOtpLimit;
+        this.otpRateLimitWindow = Duration.ofMinutes(otpRateLimitWindowMinutes);
     }
 
     @Transactional
@@ -107,6 +121,13 @@ public class AuthService {
     @Transactional
     public void createLoginOtp(LoginOtpRequest request) {
         String email = request.getEmail().trim().toLowerCase();
+        redisRateLimitService.assertAllowed(
+                "rate-limit:otp:login",
+                email,
+                loginOtpLimit,
+                otpRateLimitWindow,
+                "Too many login OTP requests. Please try again later."
+        );
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE));
@@ -122,6 +143,13 @@ public class AuthService {
     @Transactional
     public void createPasswordResetOtp(ForgotPasswordOtpRequest request) {
         String email = request.getEmail().trim().toLowerCase();
+        redisRateLimitService.assertAllowed(
+                "rate-limit:otp:password-reset",
+                email,
+                passwordResetOtpLimit,
+                otpRateLimitWindow,
+                "Too many password reset OTP requests. Please try again later."
+        );
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UnauthorizedException("Invalid email"));

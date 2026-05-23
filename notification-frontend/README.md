@@ -1,73 +1,41 @@
-# React + TypeScript + Vite
+# Notification Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This frontend is a React and Vite dashboard for the realtime notification system.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Cookie-based authentication flows.
+- Login with password or OTP.
+- Live notification updates over SSE.
+- Unread count updates in the UI.
+- Notification list with pagination and search.
+- Admin screens for sending notifications and viewing user/admin summaries.
 
-## React Compiler
+## Runtime Behavior
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The frontend does not deliver notifications directly.
 
-## Expanding the ESLint configuration
+Its role is:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. Call backend APIs to create or fetch data.
+2. Show success to the admin when the backend confirms notification persistence.
+3. Listen on SSE for live notification events.
+4. Refresh local unread count and notification list state as events arrive.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+That means admin success in the UI should represent "notification accepted and stored", not "every client already received it live".
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Local Development
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+The app is usually run through the root infrastructure scripts and Docker Compose files.
+
+Backend default URL:
+
+```text
+http://localhost:8080
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Frontend default URL:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+http://localhost:5173
 ```

@@ -1,6 +1,7 @@
 package com.renuka.notification_backend.user.controller;
 
 import com.renuka.notification_backend.common.response.ApiResponse;
+import com.renuka.notification_backend.common.response.PageResponse;
 import com.renuka.notification_backend.user.dto.AdminUserResponse;
 import com.renuka.notification_backend.user.dto.UserProfileResponse;
 import com.renuka.notification_backend.user.service.UserService;
@@ -10,9 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
@@ -35,8 +35,12 @@ public class UserController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<List<AdminUserResponse>>> getAllUsers() {
-        List<AdminUserResponse> response = userService.getAllUsersForAdmin();
+    public ResponseEntity<ApiResponse<PageResponse<AdminUserResponse>>> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String search
+    ) {
+        PageResponse<AdminUserResponse> response = userService.getAllUsersForAdmin(page, size, search);
 
         return ResponseEntity
                 .status(HttpStatus.OK)

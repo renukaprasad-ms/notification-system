@@ -1,217 +1,89 @@
 # Database Schema
 
-The database is PostgreSQL.
+The primary database is PostgreSQL.
 
-JPA currently uses:
+JPA validation is configured with:
 
 ```yaml
-spring.jpa.hibernate.ddl-auto: update
+spring.jpa.hibernate.ddl-auto: validate
 ```
 
-This is convenient during development. For production, migrations should be handled through a migration tool such as Flyway or Liquibase.
-
-## users
-
-Source:
+Schema creation and updates are handled through migration files under:
 
 ```text
-user/entity/User.java
+src/main/resources/db/migration
 ```
 
-Columns:
+## Core Tables
 
-- `id UUID PRIMARY KEY`
-- `email VARCHAR(255) UNIQUE NOT NULL`
-- `password_hash VARCHAR(255) NOT NULL`
-- `full_name VARCHAR(150)`
-- `is_email_verified BOOLEAN NOT NULL`
-- `is_active BOOLEAN NOT NULL`
-- `created_at TIMESTAMP NOT NULL`
-- `updated_at TIMESTAMP NOT NULL`
+### users
 
-Notes:
+- Stores user identity and account state.
+- Includes `is_email_verified` and `is_active`.
 
-- There is no phone number field.
-- Passwords are stored as hashes only.
+### roles
 
-## roles
+- Stores role definitions.
+- Current values include `USER` and `ADMIN`.
 
-Source:
+### user_roles
 
-```text
-user/entity/Role.java
-```
+- Maps users to roles.
+- Composite primary key prevents duplicate assignments.
 
-Columns:
+### otp_verifications
 
-- `id UUID PRIMARY KEY`
-- `name VARCHAR(50) UNIQUE NOT NULL`
-- `description VARCHAR(255)`
-- `created_at TIMESTAMP NOT NULL`
+- Stores hashed OTP values.
+- Tracks expiry, attempts, verification, and consumption.
 
-Current role values:
+## Notification Tables
 
-- `USER`
-- `ADMIN`
+### notifications
 
-## user_roles
+Stores the notification payload itself:
 
-Source:
+- `title`
+- `message`
+- `type`
+- `priority`
+- `request_id`
+- `created_by`
+- `created_at`
 
-```text
-user/entity/UserRole.java
-user/entity/UserRoleId.java
-```
+`request_id` supports idempotent admin notification creation.
 
-Columns:
+### notification_recipients
 
-- `user_id UUID NOT NULL`
-- `role_id UUID NOT NULL`
-- `created_at TIMESTAMP NOT NULL`
+Stores one delivery row per target user:
 
-Primary key:
+- `notification_id`
+- `user_id`
+- `delivery_status`
+- `delivered_at`
+- `viewed_at`
+- `read_at`
+- `created_at`
 
-```text
-(user_id, role_id)
-```
+Important constraint:
 
-Notes:
+- Unique key on `notification_id, user_id`
 
-- Prevents duplicate role assignments.
-- Admin is represented as a role mapping.
+That unique key helps prevent duplicate recipient rows for the same notification and user.
 
-## otp_verifications
+### notification_delivery_attempts
 
-Source:
+Tracks delivery audit and retry history:
 
-```text
-auth/otp/OtpVerification.java
-```
+- `notification_recipient_id`
+- `channel`
+- `status`
+- `attempt_number`
+- `error_message`
+- `attempted_at`
 
-Columns:
+## Query and Scaling Notes
 
-- `id UUID PRIMARY KEY`
-- `user_id UUID NULL`
-- `destination VARCHAR(255) NOT NULL`
-- `channel VARCHAR(20) NOT NULL`
-- `purpose VARCHAR(30) NOT NULL`
-- `otp_hash VARCHAR(255) NOT NULL`
-- `expires_at TIMESTAMP NOT NULL`
-- `verified_at TIMESTAMP NULL`
-- `consumed_at TIMESTAMP NULL`
-- `attempt_count INTEGER NOT NULL`
-- `max_attempts INTEGER NOT NULL`
-- `created_at TIMESTAMP NOT NULL`
-
-Indexes:
-
-- `idx_otp_destination_purpose`
-- `idx_otp_expires_at`
-
-Notes:
-
-- OTP value is hashed.
-- `destination` is currently email.
-- OTP is consumed after successful verification.
-
-## notifications
-
-Source:
-
-```text
-notification/entity/Notification.java
-```
-
-Columns:
-
-- `id UUID PRIMARY KEY`
-- `title VARCHAR(150) NOT NULL`
-- `message TEXT NOT NULL`
-- `type VARCHAR(50) NOT NULL`
-- `priority VARCHAR(20) NOT NULL`
-- `created_by UUID NULL`
-- `created_at TIMESTAMP NOT NULL`
-
-Current type values:
-
-- `SYSTEM`
-- `ACCOUNT`
-- `SECURITY`
-- `PROMOTION`
-
-Current priority values:
-
-- `LOW`
-- `NORMAL`
-- `HIGH`
-- `URGENT`
-
-## notification_recipients
-
-Source:
-
-```text
-notification/entity/NotificationRecipient.java
-```
-
-Columns:
-
-- `id UUID PRIMARY KEY`
-- `notification_id UUID NOT NULL`
-- `user_id UUID NOT NULL`
-- `delivered_at TIMESTAMP NULL`
-- `viewed_at TIMESTAMP NULL`
-- `read_at TIMESTAMP NULL`
-- `delivery_status VARCHAR(30) NOT NULL`
-- `created_at TIMESTAMP NOT NULL`
-
-Constraints:
-
-- Unique `notification_id, user_id`
-
-Indexes:
-
-- `idx_notification_recipient_user_created`
-- `idx_notification_recipient_user_read`
-- `idx_notification_recipient_user_viewed`
-
-Notes:
-
-- `viewed_at` tracks whether the user has seen the notification.
-- `read_at` tracks whether the user has read/acted on it.
-- Unique recipient constraint prevents duplicate notification rows for the same user.
-
-## notification_delivery_attempts
-
-Source:
-
-```text
-notification/entity/NotificationDeliveryAttempt.java
-```
-
-Columns:
-
-- `id UUID PRIMARY KEY`
-- `notification_recipient_id UUID NOT NULL`
-- `channel VARCHAR(30) NOT NULL`
-- `status VARCHAR(30) NOT NULL`
-- `attempt_number INTEGER NOT NULL`
-- `error_message TEXT NULL`
-- `attempted_at TIMESTAMP NOT NULL`
-
-Current channel values:
-
-- `IN_APP`
-- `EMAIL`
-- `SMS`
-
-Current attempt status values:
-
-- `SUCCESS`
-- `FAILED`
-
-Notes:
-
-- This table is for retry tracking and delivery audit history.
-- Current implementation writes an attempt row for every in-app SSE delivery result.
-- Failed rows can be used later by a retry worker.
+- User notification listing is paginated in the database, not in Java memory.
+- Recipient tables are indexed for user timeline queries and unread checks.
+- Send-to-all uses a database-side insert-select for active users to avoid loading every user row into application memory.
+- Redis is used for fanout and caching, but PostgreSQL remains the source of truth.

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FaBell, FaCheck, FaFilter, FaMagnifyingGlass, FaPaperPlane, FaUsers } from 'react-icons/fa6'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
 import {
   createNotificationForAll,
   createNotificationForSelected,
@@ -14,6 +16,7 @@ function AdminPage() {
   const [deliveryMode, setDeliveryMode] = useState('ALL')
   const [users, setUsers] = useState([])
   const [selectedUserIds, setSelectedUserIds] = useState([])
+  const [selectedUsersById, setSelectedUsersById] = useState({})
   const [searchTerm, setSearchTerm] = useState('')
   const [formData, setFormData] = useState({
     title: '',
@@ -25,19 +28,40 @@ function AdminPage() {
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingUsers, setIsLoadingUsers] = useState(true)
+  const [isLoadingMoreUsers, setIsLoadingMoreUsers] = useState(false)
+  const [userPageInfo, setUserPageInfo] = useState({
+    page: 0,
+    size: 20,
+    totalItems: 0,
+    totalPages: 0,
+    hasNext: false,
+  })
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 300)
 
   useEffect(() => {
     let isMounted = true
 
     const loadAdminData = async () => {
       try {
-        const usersResponse = await fetchAllUsers()
+        const usersResponse = await fetchAllUsers({
+          page: 0,
+          size: userPageInfo.size,
+          search: debouncedSearchTerm,
+        })
 
         if (!isMounted) {
           return
         }
 
-        setUsers(usersResponse.data || [])
+        setUsers(usersResponse.data?.items || [])
+        setUserPageInfo({
+          page: usersResponse.data?.page ?? 0,
+          size: usersResponse.data?.size ?? userPageInfo.size,
+          totalItems: usersResponse.data?.totalItems ?? 0,
+          totalPages: usersResponse.data?.totalPages ?? 0,
+          hasNext: usersResponse.data?.hasNext ?? false,
+        })
+        setError('')
       } catch (apiError) {
         if (isMounted) {
           setError(getApiErrorMessage(apiError, 'Unable to load admin data.'))
@@ -45,16 +69,64 @@ function AdminPage() {
       } finally {
         if (isMounted) {
           setIsLoadingUsers(false)
+          setIsLoadingMoreUsers(false)
         }
       }
     }
 
+    setIsLoadingUsers(true)
     loadAdminData()
 
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [debouncedSearchTerm, userPageInfo.size])
+
+  const loadMoreUsers = async () => {
+    if (isLoadingUsers || isLoadingMoreUsers || !userPageInfo.hasNext) {
+      return
+    }
+
+    setIsLoadingMoreUsers(true)
+
+    try {
+      const usersResponse = await fetchAllUsers({
+        page: userPageInfo.page + 1,
+        size: userPageInfo.size,
+        search: debouncedSearchTerm,
+      })
+
+      const nextItems = usersResponse.data?.items || []
+      setUsers((current) => {
+        const existingIds = new Set(current.map((user) => user.userId))
+        const merged = [...current]
+        nextItems.forEach((user) => {
+          if (!existingIds.has(user.userId)) {
+            merged.push(user)
+          }
+        })
+        return merged
+      })
+      setUserPageInfo({
+        page: usersResponse.data?.page ?? userPageInfo.page + 1,
+        size: usersResponse.data?.size ?? userPageInfo.size,
+        totalItems: usersResponse.data?.totalItems ?? userPageInfo.totalItems,
+        totalPages: usersResponse.data?.totalPages ?? userPageInfo.totalPages,
+        hasNext: usersResponse.data?.hasNext ?? false,
+      })
+    } catch (apiError) {
+      setError(getApiErrorMessage(apiError, 'Unable to load more users.'))
+    } finally {
+      setIsLoadingMoreUsers(false)
+    }
+  }
+
+  const loadMoreUsersRef = useInfiniteScroll({
+    enabled: true,
+    hasMore: userPageInfo.hasNext,
+    isLoading: isLoadingUsers || isLoadingMoreUsers,
+    onLoadMore: loadMoreUsers,
+  })
 
   const updateField = (event) => {
     setFormData((current) => ({
@@ -64,36 +136,34 @@ function AdminPage() {
   }
 
   const activeUsers = useMemo(() => users.filter((recipient) => recipient.active), [users])
-
-  const filteredUsers = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase()
-
-    return activeUsers.filter((recipient) => {
-      if (!query) {
-        return true
-      }
-
-      return (
-        recipient.fullName?.toLowerCase().includes(query) ||
-        recipient.email?.toLowerCase().includes(query) ||
-        recipient.roles?.join(' ').toLowerCase().includes(query)
-      )
-    })
-  }, [activeUsers, searchTerm])
-
   const selectedRecipients = useMemo(
-    () => activeUsers.filter((recipient) => selectedUserIds.includes(recipient.userId)),
-    [activeUsers, selectedUserIds],
+    () => selectedUserIds.map((userId) => selectedUsersById[userId]).filter(Boolean),
+    [selectedUserIds, selectedUsersById],
   )
 
-  const toggleUserSelection = (userId) => {
+  const toggleUserSelection = (recipient) => {
     if (deliveryMode !== 'SELECTED') {
       return
     }
 
+    const { userId } = recipient
+
     setSelectedUserIds((current) =>
       current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId],
     )
+
+    setSelectedUsersById((current) => {
+      if (current[userId]) {
+        const next = { ...current }
+        delete next[userId]
+        return next
+      }
+
+      return {
+        ...current,
+        [userId]: recipient,
+      }
+    })
   }
 
   const handleSubmit = async (event) => {
@@ -133,6 +203,7 @@ function AdminPage() {
         priority: 'NORMAL',
       })
       setSelectedUserIds([])
+      setSelectedUsersById({})
     } catch (apiError) {
       setError(getApiErrorMessage(apiError, 'Unable to send notification.'))
     } finally {
@@ -280,7 +351,7 @@ function AdminPage() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
                 <FaFilter />
-                {activeUsers.length} active users
+                {userPageInfo.totalItems} users
               </span>
               {deliveryMode === 'SELECTED' && (
                 <span className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-700">
@@ -322,7 +393,7 @@ function AdminPage() {
                     {recipient.fullName}
                     <button
                       type="button"
-                      onClick={() => toggleUserSelection(recipient.userId)}
+                      onClick={() => toggleUserSelection(recipient)}
                       className="text-cyan-700 transition hover:text-cyan-900"
                     >
                       x
@@ -338,19 +409,19 @@ function AdminPage() {
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
                 Loading recipients...
               </div>
-            ) : filteredUsers.length === 0 ? (
+            ) : activeUsers.length === 0 ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
                 No users matched your search.
               </div>
             ) : (
-              filteredUsers.map((recipient) => {
+              activeUsers.map((recipient) => {
                 const isSelected = selectedUserIds.includes(recipient.userId)
 
                 return (
                   <button
                     key={recipient.userId}
                     type="button"
-                    onClick={() => toggleUserSelection(recipient.userId)}
+                    onClick={() => toggleUserSelection(recipient)}
                     disabled={deliveryMode !== 'SELECTED'}
                     className={`rounded-[24px] border p-5 text-left transition ${
                       deliveryMode !== 'SELECTED'
@@ -391,6 +462,14 @@ function AdminPage() {
                 )
               })
             )}
+
+            {isLoadingMoreUsers && (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                Loading more users...
+              </div>
+            )}
+
+            <div ref={loadMoreUsersRef} className="h-2 w-full" />
           </div>
         </div>
       </div>

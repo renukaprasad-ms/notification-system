@@ -21,6 +21,9 @@ public class SendAllNotificationRequest {
     @NotNull(message = "Notification priority is required")
     private NotificationPriority priority;
 
+    @Size(max = 100, message = "Request id must not exceed 100 characters")
+    private String requestId;
+
     public String getTitle() {
         return title;
     }
@@ -51,5 +54,13 @@ public class SendAllNotificationRequest {
 
     public void setPriority(NotificationPriority priority) {
         this.priority = priority;
+    }
+
+    public String getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(String requestId) {
+        this.requestId = requestId;
     }
 }

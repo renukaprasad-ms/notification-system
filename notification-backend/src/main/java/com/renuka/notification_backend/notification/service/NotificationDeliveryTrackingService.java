@@ -31,9 +31,14 @@ public class NotificationDeliveryTrackingService {
     @Transactional
     public void recordInAppResults(List<NotificationPublishResult> results) {
         for (NotificationPublishResult result : results) {
-            notificationRecipientRepository.findById(result.getRecipientId())
-                    .ifPresent(recipient -> recordResult(recipient, result));
+            recordInAppResult(result);
         }
+    }
+
+    @Transactional
+    public void recordInAppResult(NotificationPublishResult result) {
+        notificationRecipientRepository.findById(result.getRecipientId())
+                .ifPresent(recipient -> recordResult(recipient, result));
     }
 
     private void recordResult(NotificationRecipient recipient, NotificationPublishResult result) {

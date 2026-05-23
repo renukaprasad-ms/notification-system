@@ -1,6 +1,6 @@
 # Backend Documentation
 
-This folder documents the backend implementation module by module.
+This folder documents the current backend implementation for the realtime notification system.
 
 ## Documents
 
@@ -13,28 +13,38 @@ This folder documents the backend implementation module by module.
 
 ## Current Backend Status
 
-The backend currently has:
+The backend currently includes:
 
-- Common API response wrapper.
-- Global exception handling.
-- User, role, user-role, and OTP verification entities.
-- Super admin seed.
-- Password hashing helpers.
-- OTP create/verify helpers.
-- JWT access/refresh token generation.
-- HttpOnly cookie auth.
-- Signup API.
-- Login API with password and OTP modes.
-- Login OTP creation API for development/testing.
-- Refresh-token API.
-- Logout API.
-- Forgot-password OTP API.
-- Reset-password API.
-- Current-user profile API.
-- User-module profile API.
-- Role-based access support with method security.
+- JWT cookie-based authentication.
+- OTP-based login and password reset flows.
+- Role-based authorization with admin-only notification endpoints.
+- Notification persistence in PostgreSQL.
+- User notification list API with database pagination.
+- Mark viewed and mark read APIs.
+- SSE-based live notification streaming.
+- Redis-based unread-count caching.
+- Redis-based rate limiting.
+- Redis pub/sub support for cross-instance notification fanout.
+- Retry worker for failed notification delivery attempts.
+- Idempotency support for admin notification creation.
 
-Notification delivery, realtime transport, Redis integration, and notification APIs are not implemented yet.
+## Notification Flow
 
-Notification database entities are now in place.
-Admin notification send APIs are now in place.
+Current implementation:
+
+1. Admin creates a notification through the backend API.
+2. Backend writes the notification and recipient rows to PostgreSQL.
+3. Backend returns success after persistence succeeds.
+4. After transaction commit, notification delivery is attempted through Redis pub/sub when enabled.
+5. If Redis pub/sub is unavailable, the backend falls back to local SSE publishing.
+6. Delivery results are recorded for retry and audit history.
+
+Recommended production direction:
+
+1. Persist notification and recipient rows first.
+2. Return API success immediately after the database transaction commits.
+3. Publish a lightweight event to Redis after commit.
+4. Let connected backend instances consume that event and deliver through SSE.
+5. Keep retry logic focused on recipients still marked `PENDING` or `FAILED`.
+
+That design keeps the write path fast for the frontend while delivery stays asynchronous.

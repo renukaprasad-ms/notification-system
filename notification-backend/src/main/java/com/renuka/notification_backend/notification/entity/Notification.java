@@ -13,12 +13,19 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Index;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "notifications")
+@Table(
+        name = "notifications",
+        indexes = {
+                @Index(name = "idx_notification_created_by_created_at", columnList = "created_by,created_at"),
+                @Index(name = "idx_notification_created_by_request_id", columnList = "created_by,request_id")
+        }
+)
 public class Notification {
 
     @Id
@@ -38,6 +45,9 @@ public class Notification {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private NotificationPriority priority;
+
+    @Column(name = "request_id", length = 100)
+    private String requestId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
@@ -85,6 +95,14 @@ public class Notification {
 
     public void setPriority(NotificationPriority priority) {
         this.priority = priority;
+    }
+
+    public String getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(String requestId) {
+        this.requestId = requestId;
     }
 
     public User getCreatedBy() {

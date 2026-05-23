@@ -8,6 +8,14 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      repositories:
+        enabled: false
+
   mail:
     host: ${MAIL_HOST:}
     port: ${MAIL_PORT:587}
@@ -22,11 +30,16 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
         format_sql: false
+  flyway:
+    enabled: false
+    baseline-on-migrate: true
+    baseline-version: 1
+    locations: classpath:db/migration
 
 app:
   cors:
@@ -50,3 +63,29 @@ app:
       email: ${SUPER_ADMIN_EMAIL:admin@example.com}
       password: ${SUPER_ADMIN_PASSWORD:Admin@12345}
       full-name: ${SUPER_ADMIN_FULL_NAME:Super Admin}
+  redis:
+    enabled: ${REDIS_ENABLED:true}
+    cache:
+      unread-count-ttl-minutes: ${REDIS_UNREAD_COUNT_TTL_MINUTES:60}
+    pubsub:
+      enabled: ${REDIS_PUBSUB_ENABLED:true}
+      notification-channel: ${REDIS_NOTIFICATION_CHANNEL:notification-events}
+  rate-limit:
+    otp:
+      window-minutes: ${OTP_RATE_LIMIT_WINDOW_MINUTES:15}
+      login:
+        limit: ${OTP_LOGIN_RATE_LIMIT:5}
+      password-reset:
+        limit: ${OTP_PASSWORD_RESET_RATE_LIMIT:5}
+    notification:
+      admin:
+        limit: ${ADMIN_NOTIFICATION_RATE_LIMIT:20}
+        window-minutes: ${ADMIN_NOTIFICATION_RATE_LIMIT_WINDOW_MINUTES:1}
+  notification:
+    retry:
+      enabled: ${NOTIFICATION_RETRY_ENABLED:true}
+      fixed-delay-millis: ${NOTIFICATION_RETRY_FIXED_DELAY_MILLIS:30000}
+      initial-delay-millis: ${NOTIFICATION_RETRY_INITIAL_DELAY_MILLIS:15000}
+      lock-ttl-seconds: ${NOTIFICATION_RETRY_LOCK_TTL_SECONDS:45}
+      max-attempts: ${NOTIFICATION_RETRY_MAX_ATTEMPTS:3}
+      batch-size: ${NOTIFICATION_RETRY_BATCH_SIZE:25}

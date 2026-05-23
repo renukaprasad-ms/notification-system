@@ -1,8 +1,10 @@
 package com.renuka.notification_backend.notification.realtime;
 
 import com.renuka.notification_backend.notification.dto.NotificationEventResponse;
+import com.renuka.notification_backend.notification.entity.NotificationPriority;
 import com.renuka.notification_backend.notification.entity.Notification;
 import com.renuka.notification_backend.notification.entity.NotificationRecipient;
+import com.renuka.notification_backend.notification.entity.NotificationType;
 import com.renuka.notification_backend.user.entity.User;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -43,6 +45,40 @@ public class NotificationStreamService {
         List<NotificationPublishResult> results = new ArrayList<>();
         recipients.forEach(recipient -> results.add(publish(recipient)));
         return results;
+    }
+
+    public NotificationPublishResult publish(NotificationRedisMessage message, boolean ignoreMissingConnections) {
+        Map<String, SseEmitter> emitters = emittersByUserId.get(message.getUserId());
+        if (emitters == null || emitters.isEmpty()) {
+            return ignoreMissingConnections
+                    ? null
+                    : NotificationPublishResult.failed(message.getRecipientId(), "No active SSE connection");
+        }
+
+        NotificationEventResponse event = toEvent(message);
+        int deliveredCount = 0;
+        String lastErrorMessage = null;
+
+        for (Map.Entry<String, SseEmitter> emitterEntry : emitters.entrySet()) {
+            boolean delivered = sendToEmitter(
+                    message.getUserId(),
+                    emitterEntry.getKey(),
+                    emitterEntry.getValue(),
+                    "notification",
+                    event
+            );
+            if (delivered) {
+                deliveredCount++;
+            } else {
+                lastErrorMessage = "Failed to send SSE event";
+            }
+        }
+
+        if (deliveredCount > 0) {
+            return NotificationPublishResult.delivered(message.getRecipientId());
+        }
+
+        return NotificationPublishResult.failed(message.getRecipientId(), lastErrorMessage);
     }
 
     private NotificationPublishResult publish(NotificationRecipient recipient) {
@@ -87,6 +123,25 @@ public class NotificationStreamService {
                 notification.getType(),
                 notification.getPriority(),
                 notification.getCreatedAt()
+        );
+    }
+
+    private NotificationEventResponse toEvent(NotificationRedisMessage message) {
+        UUID recipientId = message.getRecipientId();
+        UUID notificationId = message.getNotificationId();
+        String title = message.getTitle();
+        String body = message.getMessage();
+        NotificationType type = message.getType();
+        NotificationPriority priority = message.getPriority();
+
+        return new NotificationEventResponse(
+                recipientId,
+                notificationId,
+                title,
+                body,
+                type,
+                priority,
+                message.getCreatedAt()
         );
     }
 

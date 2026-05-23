@@ -4,10 +4,10 @@ WORKDIR /workspace
 
 COPY notification-backend/.mvn .mvn
 COPY notification-backend/mvnw notification-backend/pom.xml ./
-RUN ./mvnw -DskipTests dependency:go-offline
+RUN ./mvnw -Dmaven.test.skip=true dependency:go-offline
 
 COPY notification-backend/src src
-RUN ./mvnw -DskipTests package
+RUN ./mvnw -Dmaven.test.skip=true clean package
 
 FROM eclipse-temurin:17-jre-alpine
 

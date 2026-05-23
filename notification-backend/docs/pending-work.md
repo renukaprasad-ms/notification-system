@@ -1,44 +1,31 @@
 # Pending Work
 
+## Submission
+
+- Add a root project `README.md` with architecture and setup instructions.
+- Add an explicit AI usage declaration for submission.
+- Add Kubernetes manifests for backend, frontend, Redis, and PostgreSQL.
+
 ## Auth
 
-- Add mail sender provider for OTP delivery.
-- Stop returning raw OTP from login OTP API after mail delivery is added.
-- Stop returning raw password-reset OTP after mail delivery is added.
-- Add CORS config for React frontend with credentials.
-- Decide whether signup should require OTP before setting cookies.
-
-## User
-
-- Add user service if user profile operations are needed.
-- Add admin-only user management APIs only if required.
+- Replace development OTP exposure with real mail-only delivery.
+- Decide whether signup should require OTP verification before issuing auth cookies.
+- Add automated tests for password login, OTP login, refresh, logout, and reset-password flows.
 
 ## Notification
 
-- Add optional unviewed-count API if frontend needs it.
+- Add automated tests for notification creation, pagination, unread count, SSE delivery, and retry behavior.
+- Consider moving fully to an event-first delivery flow where API success is returned immediately after persistence and delivery is always handled asynchronously after commit.
+- Add optional metrics for queue lag, delivery success rate, retry count, and connected SSE clients.
 
-## Realtime
+## Realtime and Scaling
 
-- Support same user connected from multiple devices.
-- Make delivery work across horizontally scaled backend instances.
-- Prevent duplicate deliveries.
-
-## Redis
-
-- Add Redis container.
-- Add unread-count cache.
-- Add rate limiting.
-- Add graceful behavior when Redis is unavailable.
-
-## Reliability
-
-- Add retry worker for failed notification delivery.
-- Add idempotency strategy for notification creation.
-- Add structured logging.
-- Add tests for auth, OTP, and notification flows.
+- Add stronger duplicate-delivery protection for reconnect and retry edge cases.
+- Add operational limits for very high fanout notifications.
+- Add observability for multi-instance SSE delivery behavior.
 
 ## Infrastructure
 
-- Add Kubernetes manifests.
-- Add production profile config.
-- Replace `ddl-auto=update` with migrations before production.
+- Add production-ready profiles and deployment guidance.
+- Add health/readiness probes for Kubernetes.
+- Add central logging and metrics wiring.

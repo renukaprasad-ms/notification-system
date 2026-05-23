@@ -1,6 +1,7 @@
 package com.renuka.notification_backend.notification.controller;
 
 import com.renuka.notification_backend.common.response.ApiResponse;
+import com.renuka.notification_backend.common.response.PageResponse;
 import com.renuka.notification_backend.notification.dto.AdminNotificationOverviewResponse;
 import com.renuka.notification_backend.notification.dto.SendAllNotificationRequest;
 import com.renuka.notification_backend.notification.dto.SendNotificationResponse;
@@ -24,7 +25,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -72,8 +72,13 @@ public class NotificationController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<List<UserNotificationResponse>>> getMyNotifications(Authentication authentication) {
-        List<UserNotificationResponse> response = notificationService.getMyNotifications(authentication.getName());
+    public ResponseEntity<ApiResponse<PageResponse<UserNotificationResponse>>> getMyNotifications(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String search
+    ) {
+        PageResponse<UserNotificationResponse> response = notificationService.getMyNotifications(authentication.getName(), page, size, search);
 
         return ResponseEntity
                 .status(HttpStatus.OK)

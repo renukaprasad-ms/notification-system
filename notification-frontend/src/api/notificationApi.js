@@ -2,6 +2,7 @@ import apiClient from './axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
 const STREAM_CLIENT_ID_KEY = 'notification_stream_client_id'
+const MATCH_ALL_SEARCH = '__all__'
 
 export const sendNotificationToAll = (payload) => {
   return apiClient.post('/notifications/send-all', payload)
@@ -11,8 +12,14 @@ export const sendNotificationToSelected = (payload) => {
   return apiClient.post('/notifications/send-selected', payload)
 }
 
-export const getMyNotifications = () => {
-  return apiClient.get('/notifications/me')
+export const getMyNotifications = ({ page = 0, size = 20, search = '' } = {}) => {
+  return apiClient.get('/notifications/me', {
+    params: {
+      page,
+      size,
+      search: search.trim() || MATCH_ALL_SEARCH,
+    },
+  })
 }
 
 export const getUnreadNotificationCount = () => {

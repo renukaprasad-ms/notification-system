@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$ROOT_DIR/infra/.env"
 POSTGRES_COMPOSE="$ROOT_DIR/infra/postgres.compose.yml"
+REDIS_COMPOSE="$ROOT_DIR/infra/redis.compose.yml"
 BACKEND_COMPOSE="$ROOT_DIR/infra/backend.compose.yml"
 FRONTEND_COMPOSE="$ROOT_DIR/infra/frontend.compose.yml"
 
@@ -13,11 +14,11 @@ Usage:
   ./scripts/provision.sh <command> [service]
 
 Commands:
-  up [all|postgres|backend|frontend]       Start services
-  build [all|postgres|backend|frontend]    Build or pull service images
-  restart [all|postgres|backend|frontend]  Restart services
-  logs [all|postgres|backend|frontend]     Follow service logs
-  stop [all|postgres|backend|frontend]     Stop services
+  up [all|postgres|redis|backend|frontend]       Start services
+  build [all|postgres|redis|backend|frontend]    Build or pull service images
+  restart [all|postgres|redis|backend|frontend]  Restart services
+  logs [all|postgres|redis|backend|frontend]     Follow service logs
+  stop [all|postgres|redis|backend|frontend]     Stop services
   down                            Stop and remove infra containers
   status                          Show running infra services
 
@@ -43,13 +44,16 @@ compose_files_for() {
 
   case "$service" in
     all)
-      echo "-f $POSTGRES_COMPOSE -f $BACKEND_COMPOSE -f $FRONTEND_COMPOSE"
+      echo "-f $POSTGRES_COMPOSE -f $REDIS_COMPOSE -f $BACKEND_COMPOSE -f $FRONTEND_COMPOSE"
       ;;
     postgres)
       echo "-f $POSTGRES_COMPOSE"
       ;;
+    redis)
+      echo "-f $REDIS_COMPOSE"
+      ;;
     backend)
-      echo "-f $POSTGRES_COMPOSE -f $BACKEND_COMPOSE"
+      echo "-f $POSTGRES_COMPOSE -f $REDIS_COMPOSE -f $BACKEND_COMPOSE"
       ;;
     frontend)
       echo "-f $FRONTEND_COMPOSE"
@@ -68,6 +72,9 @@ compose_service_name_for() {
   case "$service" in
     postgres)
       echo "postgres"
+      ;;
+    redis)
+      echo "redis"
       ;;
     backend)
       echo "notification-backend"
@@ -107,7 +114,7 @@ ensure_env_file
 case "$command" in
   up)
     if [[ "$service" == "backend" ]]; then
-      compose "$service" up -d postgres notification-backend
+      compose "$service" up -d postgres redis notification-backend
     elif [[ "$service" == "all" ]]; then
       compose "$service" up -d
     else

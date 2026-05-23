@@ -19,8 +19,8 @@ export const createNotificationForSelected = async (payload) => {
   return response.data
 }
 
-export const fetchMyNotifications = async () => {
-  const response = await getMyNotifications()
+export const fetchMyNotifications = async (params) => {
+  const response = await getMyNotifications(params)
   return response.data
 }
 

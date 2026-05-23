@@ -3,6 +3,8 @@ package com.renuka.notification_backend.notification.service;
 import com.renuka.notification_backend.common.exception.BadRequestException;
 import com.renuka.notification_backend.common.exception.NotFoundException;
 import com.renuka.notification_backend.common.exception.UnauthorizedException;
+import com.renuka.notification_backend.common.response.PageResponse;
+import com.renuka.notification_backend.common.utils.RedisRateLimitService;
 import com.renuka.notification_backend.notification.dto.AdminNotificationOverviewResponse;
 import com.renuka.notification_backend.notification.dto.SendAllNotificationRequest;
 import com.renuka.notification_backend.notification.dto.SendNotificationResponse;
@@ -12,60 +14,100 @@ import com.renuka.notification_backend.notification.dto.UserNotificationResponse
 import com.renuka.notification_backend.notification.entity.Notification;
 import com.renuka.notification_backend.notification.entity.NotificationRecipient;
 import com.renuka.notification_backend.notification.realtime.NotificationPublishResult;
+import com.renuka.notification_backend.notification.realtime.NotificationRedisPublisher;
 import com.renuka.notification_backend.notification.realtime.NotificationStreamService;
 import com.renuka.notification_backend.notification.repository.NotificationRecipientRepository;
 import com.renuka.notification_backend.notification.repository.NotificationRepository;
 import com.renuka.notification_backend.user.entity.User;
 import com.renuka.notification_backend.user.repository.UserRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class NotificationService {
 
+    private static final String MATCH_ALL_SEARCH = "__all__";
+
     private final NotificationRepository notificationRepository;
     private final NotificationRecipientRepository notificationRecipientRepository;
     private final UserRepository userRepository;
     private final NotificationStreamService notificationStreamService;
+    private final NotificationRedisPublisher notificationRedisPublisher;
     private final NotificationDeliveryTrackingService notificationDeliveryTrackingService;
+    private final UnreadCountCacheService unreadCountCacheService;
+    private final RedisRateLimitService redisRateLimitService;
+    private final boolean redisEnabled;
+    private final boolean pubSubEnabled;
+    private final long adminSendLimit;
+    private final Duration adminSendWindow;
 
     public NotificationService(
             NotificationRepository notificationRepository,
             NotificationRecipientRepository notificationRecipientRepository,
             UserRepository userRepository,
             NotificationStreamService notificationStreamService,
-            NotificationDeliveryTrackingService notificationDeliveryTrackingService
+            NotificationRedisPublisher notificationRedisPublisher,
+            NotificationDeliveryTrackingService notificationDeliveryTrackingService,
+            UnreadCountCacheService unreadCountCacheService,
+            RedisRateLimitService redisRateLimitService,
+            @org.springframework.beans.factory.annotation.Value("${app.redis.enabled:true}") boolean redisEnabled,
+            @org.springframework.beans.factory.annotation.Value("${app.redis.pubsub.enabled:true}") boolean pubSubEnabled,
+            @org.springframework.beans.factory.annotation.Value("${app.rate-limit.notification.admin.limit:20}") long adminSendLimit,
+            @org.springframework.beans.factory.annotation.Value("${app.rate-limit.notification.admin.window-minutes:1}") long adminSendWindowMinutes
     ) {
         this.notificationRepository = notificationRepository;
         this.notificationRecipientRepository = notificationRecipientRepository;
         this.userRepository = userRepository;
         this.notificationStreamService = notificationStreamService;
+        this.notificationRedisPublisher = notificationRedisPublisher;
         this.notificationDeliveryTrackingService = notificationDeliveryTrackingService;
+        this.unreadCountCacheService = unreadCountCacheService;
+        this.redisRateLimitService = redisRateLimitService;
+        this.redisEnabled = redisEnabled;
+        this.pubSubEnabled = pubSubEnabled;
+        this.adminSendLimit = adminSendLimit;
+        this.adminSendWindow = Duration.ofMinutes(adminSendWindowMinutes);
     }
 
     @Transactional
     public SendNotificationResponse sendToAllUsers(SendAllNotificationRequest request, String adminEmail) {
+        assertAdminSendAllowed(adminEmail);
         User admin = getActiveUser(adminEmail);
-        List<User> recipients = userRepository.findByActiveTrue();
+        Optional<SendNotificationResponse> existingResponse = findExistingResponse(admin, request.getRequestId());
+        if (existingResponse.isPresent()) {
+            return existingResponse.get();
+        }
+        long activeUsers = userRepository.countByActiveTrue();
 
-        if (recipients.isEmpty()) {
+        if (activeUsers == 0) {
             throw new BadRequestException("No active users found");
         }
 
-        return createNotification(request, admin, recipients);
+        return createNotificationForAllActiveUsers(request, admin);
     }
 
     @Transactional
     public SendNotificationResponse sendToSelectedUsers(SendSelectedNotificationRequest request, String adminEmail) {
+        assertAdminSendAllowed(adminEmail);
         User admin = getActiveUser(adminEmail);
+        Optional<SendNotificationResponse> existingResponse = findExistingResponse(admin, request.getRequestId());
+        if (existingResponse.isPresent()) {
+            return existingResponse.get();
+        }
         List<UUID> recipientIds = distinctRecipientIds(request.getRecipientUserIds());
 
         if (recipientIds.isEmpty()) {
@@ -85,23 +127,40 @@ public class NotificationService {
             User createdBy,
             List<User> recipients
     ) {
-        Notification notification = new Notification();
-        notification.setTitle(request.getTitle().trim());
-        notification.setMessage(request.getMessage().trim());
-        notification.setType(request.getType());
-        notification.setPriority(request.getPriority());
-        notification.setCreatedBy(createdBy);
-
-        Notification savedNotification = notificationRepository.save(notification);
+        Notification savedNotification = saveNotification(request, createdBy);
 
         List<NotificationRecipient> notificationRecipients = recipients.stream()
                 .map(user -> toRecipient(savedNotification, user))
                 .toList();
 
         List<NotificationRecipient> savedRecipients = notificationRecipientRepository.saveAll(notificationRecipients);
+        unreadCountCacheService.incrementUnreadCounts(savedRecipients.stream().map(recipient -> recipient.getUser().getId()).toList());
         publishAfterCommit(savedRecipients);
 
         return new SendNotificationResponse(savedNotification.getId(), savedRecipients.size());
+    }
+
+    private SendNotificationResponse createNotificationForAllActiveUsers(
+            SendAllNotificationRequest request,
+            User createdBy
+    ) {
+        Notification savedNotification = saveNotification(request, createdBy);
+        int recipientCount = notificationRecipientRepository.insertPendingRecipientsForActiveUsers(savedNotification.getId());
+        unreadCountCacheService.evictAllUnreadCounts();
+
+        return new SendNotificationResponse(savedNotification.getId(), recipientCount);
+    }
+
+    private Notification saveNotification(SendAllNotificationRequest request, User createdBy) {
+        Notification notification = new Notification();
+        notification.setTitle(request.getTitle().trim());
+        notification.setMessage(request.getMessage().trim());
+        notification.setType(request.getType());
+        notification.setPriority(request.getPriority());
+        notification.setRequestId(normalizeRequestId(request.getRequestId()));
+        notification.setCreatedBy(createdBy);
+
+        return notificationRepository.save(notification);
     }
 
     public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamNotifications(String userEmail) {
@@ -118,14 +177,19 @@ public class NotificationService {
         return notificationStreamService.subscribe(user, clientId.trim());
     }
 
-    @Transactional
-    public List<UserNotificationResponse> getMyNotifications(String userEmail) {
+    @Transactional(readOnly = true)
+    public PageResponse<UserNotificationResponse> getMyNotifications(String userEmail, int page, int size, String search) {
         User user = getActiveUser(userEmail);
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        String normalizedSearch = normalizeSearch(search);
 
-        return notificationRecipientRepository.findByUserIdOrderByCreatedAtDesc(user.getId())
-                .stream()
-                .map(this::toUserNotificationResponse)
-                .toList();
+        Page<NotificationRecipient> pageResult = MATCH_ALL_SEARCH.equals(normalizedSearch)
+                ? notificationRecipientRepository.findByUserId(user.getId(), pageable)
+                : notificationRecipientRepository.findUserNotifications(user.getId(), normalizedSearch, pageable);
+
+        return PageResponse.from(pageResult.map(this::toUserNotificationResponse));
     }
 
     @Transactional
@@ -153,22 +217,27 @@ public class NotificationService {
 
         if (recipient.getReadAt() == null) {
             recipient.setReadAt(now);
+            unreadCountCacheService.decrementUnreadCount(user.getId());
         }
 
         return toUserNotificationResponse(notificationRecipientRepository.save(recipient));
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public UnreadCountResponse getUnreadCount(String userEmail) {
         User user = getActiveUser(userEmail);
-        return new UnreadCountResponse(notificationRecipientRepository.countByUserIdAndReadAtIsNull(user.getId()));
+        long unreadCount = unreadCountCacheService.getUnreadCount(
+                user.getId(),
+                () -> notificationRecipientRepository.countByUserIdAndReadAtIsNull(user.getId())
+        );
+        return new UnreadCountResponse(unreadCount);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public AdminNotificationOverviewResponse getAdminOverview(String adminEmail) {
         User admin = getActiveUser(adminEmail);
         long notificationsSent = notificationRepository.countByCreatedById(admin.getId());
-        long activeUsers = userRepository.findByActiveTrue().size();
+        long activeUsers = userRepository.countByActiveTrue();
 
         return new AdminNotificationOverviewResponse(notificationsSent, activeUsers);
     }
@@ -233,7 +302,51 @@ public class NotificationService {
     }
 
     private void publishAndTrack(List<NotificationRecipient> recipients) {
+        if (redisEnabled && pubSubEnabled && notificationRedisPublisher.publish(recipients)) {
+            return;
+        }
+
         List<NotificationPublishResult> results = notificationStreamService.publish(recipients);
         notificationDeliveryTrackingService.recordInAppResults(results);
     }
+
+    private void assertAdminSendAllowed(String adminEmail) {
+        redisRateLimitService.assertAllowed(
+                "rate-limit:notification:admin-send",
+                adminEmail,
+                adminSendLimit,
+                adminSendWindow,
+                "Too many notification send attempts. Please try again later."
+        );
+    }
+
+    private Optional<SendNotificationResponse> findExistingResponse(User admin, String requestId) {
+        String normalizedRequestId = normalizeRequestId(requestId);
+        if (normalizedRequestId == null) {
+            return Optional.empty();
+        }
+
+        return notificationRepository.findByCreatedByIdAndRequestId(admin.getId(), normalizedRequestId)
+                .map(notification -> new SendNotificationResponse(
+                        notification.getId(),
+                        Math.toIntExact(notificationRecipientRepository.countByNotificationId(notification.getId()))
+                ));
+    }
+
+    private String normalizeRequestId(String requestId) {
+        if (requestId == null || requestId.isBlank()) {
+            return null;
+        }
+
+        return requestId.trim();
+    }
+
+    private String normalizeSearch(String search) {
+        if (search == null || search.isBlank()) {
+            return MATCH_ALL_SEARCH;
+        }
+
+        return search.trim();
+    }
+
 }
