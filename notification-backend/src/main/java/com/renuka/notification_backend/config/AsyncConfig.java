@@ -12,6 +12,21 @@ import java.util.concurrent.Executor;
 @EnableAsync
 public class AsyncConfig {
 
+    @Bean(name = "mailDeliveryExecutor")
+    public Executor mailDeliveryExecutor(
+            @Value("${app.mail.async.core-pool-size:2}") int corePoolSize,
+            @Value("${app.mail.async.max-pool-size:4}") int maxPoolSize,
+            @Value("${app.mail.async.queue-capacity:100}") int queueCapacity
+    ) {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(corePoolSize);
+        executor.setMaxPoolSize(maxPoolSize);
+        executor.setQueueCapacity(queueCapacity);
+        executor.setThreadNamePrefix("mail-delivery-");
+        executor.initialize();
+        return executor;
+    }
+
     @Bean(name = "notificationDispatchExecutor")
     public Executor notificationDispatchExecutor(
             @Value("${app.notification.dispatch.core-pool-size:4}") int corePoolSize,

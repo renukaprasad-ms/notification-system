@@ -4,9 +4,7 @@ import com.renuka.notification_backend.common.exception.BadRequestException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -15,18 +13,18 @@ public class EmailOtpDeliveryService implements OtpDeliveryService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EmailOtpDeliveryService.class);
 
-    private final JavaMailSender javaMailSender;
+    private final AsyncOtpMailSender asyncOtpMailSender;
     private final String mailHost;
     private final String mailUsername;
     private final String fromAddress;
 
     public EmailOtpDeliveryService(
-            JavaMailSender javaMailSender,
+            AsyncOtpMailSender asyncOtpMailSender,
             @Value("${spring.mail.host:}") String mailHost,
             @Value("${spring.mail.username:}") String mailUsername,
             @Value("${app.mail.from:}") String fromAddress
     ) {
-        this.javaMailSender = javaMailSender;
+        this.asyncOtpMailSender = asyncOtpMailSender;
         this.mailHost = mailHost;
         this.mailUsername = mailUsername;
         this.fromAddress = fromAddress;
@@ -44,12 +42,7 @@ public class EmailOtpDeliveryService implements OtpDeliveryService {
         message.setTo(destination);
         message.setSubject(subjectFor(purpose));
         message.setText(bodyFor(purpose, otp));
-
-        try {
-            javaMailSender.send(message);
-        } catch (MailException exception) {
-            throw new BadRequestException("Unable to send OTP email");
-        }
+        asyncOtpMailSender.send(message);
     }
 
     private boolean isMailConfigured() {
