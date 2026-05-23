@@ -4,7 +4,6 @@
 
 - Add a root project `README.md` with architecture and setup instructions.
 - Add an explicit AI usage declaration for submission.
-- Add Kubernetes manifests for backend, frontend, Redis, and PostgreSQL.
 
 ## Auth
 

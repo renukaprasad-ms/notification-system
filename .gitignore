@@ -4,6 +4,7 @@
 !.env.example
 infra/.env
 notification-backend/.env
+k8s/secrets.yaml
 
 # Java / Maven
 target/

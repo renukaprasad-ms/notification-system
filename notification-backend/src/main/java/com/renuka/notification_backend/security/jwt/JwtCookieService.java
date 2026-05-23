@@ -42,7 +42,7 @@ public class JwtCookieService {
 
     public void clearAuthCookies(HttpHeaders headers) {
         headers.add(HttpHeaders.SET_COOKIE, expiredCookie(accessTokenCookieName, "/").toString());
-        headers.add(HttpHeaders.SET_COOKIE, expiredCookie(refreshTokenCookieName, "/api/auth/refresh").toString());
+        headers.add(HttpHeaders.SET_COOKIE, expiredCookie(refreshTokenCookieName, "/").toString());
     }
 
     public Optional<String> getAccessToken(HttpServletRequest request) {
@@ -60,7 +60,7 @@ public class JwtCookieService {
     }
 
     private ResponseCookie refreshTokenCookie(String token) {
-        return baseCookie(refreshTokenCookieName, token, "/api/auth/refresh")
+        return baseCookie(refreshTokenCookieName, token, "/")
                 .maxAge(Duration.ofSeconds(jwtService.getRefreshTokenExpirationSeconds()))
                 .build();
     }

@@ -13,8 +13,6 @@ import com.renuka.notification_backend.notification.dto.UnreadCountResponse;
 import com.renuka.notification_backend.notification.dto.UserNotificationResponse;
 import com.renuka.notification_backend.notification.entity.Notification;
 import com.renuka.notification_backend.notification.entity.NotificationRecipient;
-import com.renuka.notification_backend.notification.realtime.NotificationPublishResult;
-import com.renuka.notification_backend.notification.realtime.NotificationRedisPublisher;
 import com.renuka.notification_backend.notification.realtime.NotificationStreamService;
 import com.renuka.notification_backend.notification.repository.NotificationRecipientRepository;
 import com.renuka.notification_backend.notification.repository.NotificationRepository;
@@ -46,12 +44,9 @@ public class NotificationService {
     private final NotificationRecipientRepository notificationRecipientRepository;
     private final UserRepository userRepository;
     private final NotificationStreamService notificationStreamService;
-    private final NotificationRedisPublisher notificationRedisPublisher;
-    private final NotificationDeliveryTrackingService notificationDeliveryTrackingService;
+    private final NotificationDispatchService notificationDispatchService;
     private final UnreadCountCacheService unreadCountCacheService;
     private final RedisRateLimitService redisRateLimitService;
-    private final boolean redisEnabled;
-    private final boolean pubSubEnabled;
     private final long adminSendLimit;
     private final Duration adminSendWindow;
 
@@ -60,12 +55,9 @@ public class NotificationService {
             NotificationRecipientRepository notificationRecipientRepository,
             UserRepository userRepository,
             NotificationStreamService notificationStreamService,
-            NotificationRedisPublisher notificationRedisPublisher,
-            NotificationDeliveryTrackingService notificationDeliveryTrackingService,
+            NotificationDispatchService notificationDispatchService,
             UnreadCountCacheService unreadCountCacheService,
             RedisRateLimitService redisRateLimitService,
-            @org.springframework.beans.factory.annotation.Value("${app.redis.enabled:true}") boolean redisEnabled,
-            @org.springframework.beans.factory.annotation.Value("${app.redis.pubsub.enabled:true}") boolean pubSubEnabled,
             @org.springframework.beans.factory.annotation.Value("${app.rate-limit.notification.admin.limit:20}") long adminSendLimit,
             @org.springframework.beans.factory.annotation.Value("${app.rate-limit.notification.admin.window-minutes:1}") long adminSendWindowMinutes
     ) {
@@ -73,12 +65,9 @@ public class NotificationService {
         this.notificationRecipientRepository = notificationRecipientRepository;
         this.userRepository = userRepository;
         this.notificationStreamService = notificationStreamService;
-        this.notificationRedisPublisher = notificationRedisPublisher;
-        this.notificationDeliveryTrackingService = notificationDeliveryTrackingService;
+        this.notificationDispatchService = notificationDispatchService;
         this.unreadCountCacheService = unreadCountCacheService;
         this.redisRateLimitService = redisRateLimitService;
-        this.redisEnabled = redisEnabled;
-        this.pubSubEnabled = pubSubEnabled;
         this.adminSendLimit = adminSendLimit;
         this.adminSendWindow = Duration.ofMinutes(adminSendWindowMinutes);
     }
@@ -146,7 +135,7 @@ public class NotificationService {
     ) {
         Notification savedNotification = saveNotification(request, createdBy);
         int recipientCount = notificationRecipientRepository.insertPendingRecipientsForActiveUsers(savedNotification.getId());
-        unreadCountCacheService.evictAllUnreadCounts();
+        publishAfterCommit(savedNotification.getId(), true);
 
         return new SendNotificationResponse(savedNotification.getId(), recipientCount);
     }
@@ -289,25 +278,30 @@ public class NotificationService {
 
     private void publishAfterCommit(List<NotificationRecipient> recipients) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            publishAndTrack(recipients);
+            notificationDispatchService.dispatchRecipients(recipients);
             return;
         }
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                publishAndTrack(recipients);
+                notificationDispatchService.dispatchRecipients(recipients);
             }
         });
     }
 
-    private void publishAndTrack(List<NotificationRecipient> recipients) {
-        if (redisEnabled && pubSubEnabled && notificationRedisPublisher.publish(recipients)) {
+    private void publishAfterCommit(UUID notificationId, boolean evictAllUnreadCounts) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            notificationDispatchService.dispatchNotificationRecipients(notificationId, evictAllUnreadCounts);
             return;
         }
 
-        List<NotificationPublishResult> results = notificationStreamService.publish(recipients);
-        notificationDeliveryTrackingService.recordInAppResults(results);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                notificationDispatchService.dispatchNotificationRecipients(notificationId, evictAllUnreadCounts);
+            }
+        });
     }
 
     private void assertAdminSendAllowed(String adminEmail) {

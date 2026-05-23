@@ -1,6 +1,6 @@
 import apiClient from './axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const STREAM_CLIENT_ID_KEY = 'notification_stream_client_id'
 const MATCH_ALL_SEARCH = '__all__'
 
@@ -49,7 +49,7 @@ export const getNotificationStreamUrl = () => {
     window.sessionStorage.setItem(STREAM_CLIENT_ID_KEY, clientId)
   }
 
-  const streamUrl = new URL(`${API_BASE_URL}/notifications/stream`)
+  const streamUrl = new URL(`${API_BASE_URL}/notifications/stream`, window.location.origin)
   streamUrl.searchParams.set('clientId', clientId)
   return streamUrl.toString()
 }

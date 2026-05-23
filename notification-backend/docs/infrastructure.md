@@ -2,6 +2,12 @@
 
 Infrastructure files live in the repository root `infra/` folder.
 
+Kubernetes manifests live in:
+
+```text
+k8s/
+```
+
 ## Compose Files
 
 ```text

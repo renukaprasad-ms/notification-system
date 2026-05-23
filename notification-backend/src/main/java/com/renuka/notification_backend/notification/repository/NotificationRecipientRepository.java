@@ -16,8 +16,11 @@ import java.util.UUID;
 
 public interface NotificationRecipientRepository extends JpaRepository<NotificationRecipient, UUID> {
 
-    @EntityGraph(attributePaths = "notification")
+    @EntityGraph(attributePaths = {"notification", "user"})
     Page<NotificationRecipient> findByUserId(UUID userId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"notification", "user"})
+    Page<NotificationRecipient> findByNotificationId(UUID notificationId, Pageable pageable);
 
     Optional<NotificationRecipient> findByIdAndUserId(UUID id, UUID userId);
 
