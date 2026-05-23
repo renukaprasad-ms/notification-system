@@ -35,8 +35,8 @@ public class EmailOtpDeliveryService implements OtpDeliveryService {
     @Override
     public void sendOtp(String destination, OtpPurpose purpose, String otp) {
         if (!isMailConfigured()) {
-            LOGGER.warn("Mail is not configured. OTP was created but not emailed to {}", destination);
-            return;
+            LOGGER.warn("Mail is not configured. Refusing to create an unusable OTP flow for {}", destination);
+            throw new BadRequestException("OTP email delivery is not configured on the server");
         }
 
         SimpleMailMessage message = new SimpleMailMessage();

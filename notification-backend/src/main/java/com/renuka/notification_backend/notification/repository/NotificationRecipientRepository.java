@@ -42,36 +42,34 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
 
     List<NotificationRecipient> findByDeliveryStatusInOrderByCreatedAtAsc(List<DeliveryStatus> deliveryStatuses, Pageable pageable);
 
-    @EntityGraph(attributePaths = "notification")
+    @EntityGraph(attributePaths = {"notification", "user"})
     @Query(
             value = """
-                    select nr.*
-                    from notification_recipients nr
-                    join notifications n on n.id = nr.notification_id
-                    where nr.user_id = :userId
+                    select nr
+                    from NotificationRecipient nr
+                    join nr.notification n
+                    where nr.user.id = :userId
                       and (
                             :search = '__all__'
-                            or n.title ilike concat('%', :search, '%')
-                            or n.message ilike concat('%', :search, '%')
-                            or n.type ilike concat('%', :search, '%')
-                            or n.priority ilike concat('%', :search, '%')
+                            or lower(coalesce(n.title, '')) like lower(concat('%', :search, '%'))
+                            or lower(coalesce(n.message, '')) like lower(concat('%', :search, '%'))
+                            or lower(str(n.type)) like lower(concat('%', :search, '%'))
+                            or lower(str(n.priority)) like lower(concat('%', :search, '%'))
                       )
-                    order by nr.created_at desc
                     """,
             countQuery = """
-                    select count(*)
-                    from notification_recipients nr
-                    join notifications n on n.id = nr.notification_id
-                    where nr.user_id = :userId
+                    select count(nr)
+                    from NotificationRecipient nr
+                    join nr.notification n
+                    where nr.user.id = :userId
                       and (
                             :search = '__all__'
-                            or n.title ilike concat('%', :search, '%')
-                            or n.message ilike concat('%', :search, '%')
-                            or n.type ilike concat('%', :search, '%')
-                            or n.priority ilike concat('%', :search, '%')
+                            or lower(coalesce(n.title, '')) like lower(concat('%', :search, '%'))
+                            or lower(coalesce(n.message, '')) like lower(concat('%', :search, '%'))
+                            or lower(str(n.type)) like lower(concat('%', :search, '%'))
+                            or lower(str(n.priority)) like lower(concat('%', :search, '%'))
                       )
-                    """,
-            nativeQuery = true
+                    """
     )
     Page<NotificationRecipient> findUserNotifications(
             @Param("userId") UUID userId,

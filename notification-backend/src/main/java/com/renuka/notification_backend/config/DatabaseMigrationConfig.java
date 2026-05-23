@@ -6,6 +6,7 @@ import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationVersion;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.AbstractDependsOnBeanFactoryPostProcessor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,6 +16,7 @@ import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 public class DatabaseMigrationConfig {
 
     @Bean("flywayMigrationExecutor")
+    @ConditionalOnProperty(name = "spring.flyway.enabled", havingValue = "true", matchIfMissing = true)
     InitializingBean flywayMigrationExecutor(
             DataSource dataSource,
             @Value("${spring.flyway.locations:classpath:db/migration}") String[] locations,
@@ -30,6 +32,7 @@ public class DatabaseMigrationConfig {
     }
 
     @Configuration
+    @ConditionalOnProperty(name = "spring.flyway.enabled", havingValue = "true", matchIfMissing = true)
     static class JpaDependsOnMigration extends AbstractDependsOnBeanFactoryPostProcessor {
 
         JpaDependsOnMigration() {

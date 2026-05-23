@@ -15,6 +15,9 @@ This folder contains a stronger Kubernetes deployment shape for the realtime not
 - `frontend.yaml`
 - `frontend-pdb.yaml`
 - `ingress.yaml`
+- `frontend-nodeport-service.yaml`
+- `backend-nodeport-service.yaml`
+- `cloudflared-home-server.example.yml`
 - `kind-config.yaml`
 
 ## Production-Oriented Changes
@@ -220,6 +223,56 @@ Check autoscaler:
 ```bash
 kubectl get hpa -n notification-system
 ```
+
+## NodePort Exposure
+
+The deployment files keep the original internal Services:
+
+- `notification-frontend`
+- `notification-backend`
+
+Those are still useful for in-cluster routing and ingress.
+
+For direct host access or Cloudflare Tunnel on the same machine, use the dedicated NodePort edge Services:
+
+- `frontend-nodeport-service.yaml`
+- `backend-nodeport-service.yaml`
+
+Apply them with:
+
+```bash
+kubectl apply -f k8s/frontend-nodeport-service.yaml
+kubectl apply -f k8s/backend-nodeport-service.yaml
+```
+
+NodePort mapping:
+
+- frontend: `30080 -> 80`
+- backend: `30081 -> 8080`
+
+Verify:
+
+```bash
+kubectl get svc -n notification-system
+kubectl get svc notification-frontend-nodeport -n notification-system -o wide
+kubectl get svc notification-backend-nodeport -n notification-system -o wide
+```
+
+## Cloudflare Tunnel
+
+An example `cloudflared` ingress file is included:
+
+- `cloudflared-home-server.example.yml`
+
+This assumes:
+
+- tunnel name: `home-server`
+- `cloudflared` is installed on the same host machine as the Kubernetes node
+- `cloudflared` will forward:
+  - `notification.renukaprasad.online -> localhost:30080`
+  - `api-notification.renukaprasad.online -> localhost:30081`
+
+If your Kubernetes distribution exposes NodePorts on the host network, `localhost` is enough. If not, replace `localhost` with the node IP or the LAN IP of the server.
 
 Or:
 

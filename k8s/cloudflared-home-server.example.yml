@@ -1,0 +1,16 @@
+tunnel: home-server
+credentials-file: /etc/cloudflared/home-server.json
+
+ingress:
+  - hostname: notification.renukaprasad.online
+    service: http://localhost:30080
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: true
+  - hostname: api-notification.renukaprasad.online
+    service: http://localhost:30081
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: true
+      disableChunkedEncoding: false
+  - service: http_status:404

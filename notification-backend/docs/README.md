@@ -9,7 +9,6 @@ This folder documents the current backend implementation for the realtime notifi
 - [API Reference](./api.md)
 - [Database Schema](./database-schema.md)
 - [Infrastructure](./infrastructure.md)
-- [Pending Work](./pending-work.md)
 
 ## Current Backend Status
 
@@ -27,6 +26,14 @@ The backend currently includes:
 - Redis pub/sub support for cross-instance notification fanout.
 - Retry worker for failed notification delivery attempts.
 - Idempotency support for admin notification creation.
+- A dedicated `test` profile so `./mvnw test` can boot without production environment variables.
+
+## Recommended Reading Order
+
+1. [API Reference](./api.md)
+2. [Implemented Modules](./modules.md)
+3. [Database Schema](./database-schema.md)
+4. [Infrastructure](./infrastructure.md)
 
 ## Notification Flow
 

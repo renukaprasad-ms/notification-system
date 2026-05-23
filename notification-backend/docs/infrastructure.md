@@ -99,6 +99,11 @@ Important backend variables:
 - `ADMIN_NOTIFICATION_RATE_LIMIT`
 - `NOTIFICATION_RETRY_ENABLED`
 
+Important test/runtime distinction:
+
+- local Docker and Kubernetes use PostgreSQL and Redis
+- backend tests use an isolated H2-based `test` profile, so `./mvnw test` runs without external services
+
 Important frontend variables:
 
 - `FRONTEND_PORT`

@@ -49,6 +49,16 @@ Infra:
 - retry worker for failed notification delivery
 - idempotent notification creation with `requestId`
 
+## Submission Status
+
+This repository is organized as a submission-ready full-stack project:
+
+- backend, frontend, and infrastructure live in one repository
+- architecture, API, schema, and infrastructure docs are included
+- AI usage is declared in [AI_USAGE.md](./AI_USAGE.md)
+- frontend production checks pass
+- backend tests boot with a dedicated `test` profile
+
 ## Architecture Summary
 
 The system uses PostgreSQL as the source of truth and Redis as the realtime coordination layer.
@@ -64,6 +74,17 @@ High-level flow:
 7. Failed or missed deliveries stay trackable through recipient status and retry records.
 
 This keeps the API path fast while still supporting live delivery and retry behavior.
+
+## Request Lifecycle
+
+1. Admin sends a notification request.
+2. Backend validates admin access and request payload.
+3. Notification and recipient rows are persisted in PostgreSQL.
+4. API success is returned after persistence succeeds.
+5. Delivery dispatch happens after transaction commit.
+6. Redis pub/sub fans out events across backend instances when enabled.
+7. SSE connections push updates to connected browser tabs or devices.
+8. Redis caches unread counts, with database fallback when Redis is unavailable.
 
 ## Why SSE
 
@@ -89,10 +110,12 @@ scripts/                Helper scripts
 ## Run Locally With Docker Compose
 
 1. Make sure Docker is running.
-2. Update `infra/.env` if needed.
-3. Start the stack:
+2. Create `infra/.env` from `infra/.env.example`.
+3. Update the values if needed.
+4. Start the stack:
 
 ```bash
+cp infra/.env.example infra/.env
 ./scripts/provision.sh up
 ```
 
@@ -109,6 +132,46 @@ Default local URLs:
 
 - frontend: `http://localhost:5173`
 - backend: `http://localhost:8080`
+
+## Test And Build Checks
+
+Backend:
+
+```bash
+cd notification-backend
+./mvnw test
+```
+
+Frontend:
+
+```bash
+cd notification-frontend
+npm run lint
+npm run build
+```
+
+## Demo Checklist
+
+1. Login as the seeded admin account.
+2. Open the notifications page in one or more browser tabs.
+3. Send a notification from the admin page.
+4. Confirm the notification appears live through SSE.
+5. Confirm unread count updates immediately.
+6. Search notifications by title, message, type, or priority.
+7. Mark notifications viewed and read.
+8. Refresh and confirm the persisted state remains correct.
+
+## Local Environment Notes
+
+Important variables:
+
+- `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`
+- `JWT_SECRET`
+- `REDIS_ENABLED`, `REDIS_PUBSUB_ENABLED`
+- `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`
+- `VITE_API_BASE_URL`
+
+OTP login and password-reset OTP require mail configuration. The backend returns an explicit error if email delivery is not configured.
 
 ## Run With Kubernetes
 
@@ -182,7 +245,6 @@ That is the core mechanism that keeps realtime behavior working across multiple 
 - add automated tests for auth, notification, and retry flows
 - expose actuator health endpoints for stronger Kubernetes probes
 - move very large fanout delivery to an outbox or queue model such as Redis Streams
-- add a formal root AI usage declaration if required separately from this README
 
 ## Additional Docs
 

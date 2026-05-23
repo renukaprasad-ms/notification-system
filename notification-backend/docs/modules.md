@@ -50,7 +50,8 @@ Notes:
 
 - JWT access and refresh tokens are stored in HttpOnly cookies.
 - OTP values are stored hashed in the database.
-- OTP APIs still return raw OTP codes for development until email-only delivery is enforced.
+- OTP APIs do not return raw OTP values.
+- OTP delivery requires mail configuration and fails explicitly when email delivery is not configured.
 
 ## Security Module
 
@@ -139,3 +140,4 @@ Provides:
 - Manual Flyway migration execution before JPA startup.
 - Redis serialization and subscriber wiring.
 - Seed data for roles and super admin.
+- Test profile configuration for isolated backend boot checks.

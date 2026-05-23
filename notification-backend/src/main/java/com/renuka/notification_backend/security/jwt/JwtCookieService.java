@@ -14,6 +14,8 @@ import java.util.Optional;
 
 @Service
 public class JwtCookieService {
+    private static final String LEGACY_REFRESH_COOKIE_PATH = "/api/auth/refresh";
+
 
     private final JwtService jwtService;
     private final String accessTokenCookieName;
@@ -36,12 +38,14 @@ public class JwtCookieService {
     }
 
     public void addAuthCookies(HttpHeaders headers, User user) {
+        headers.add(HttpHeaders.SET_COOKIE, expiredCookie(refreshTokenCookieName, LEGACY_REFRESH_COOKIE_PATH).toString());
         headers.add(HttpHeaders.SET_COOKIE, accessTokenCookie(jwtService.createAccessToken(user)).toString());
         headers.add(HttpHeaders.SET_COOKIE, refreshTokenCookie(jwtService.createRefreshToken(user)).toString());
     }
 
     public void clearAuthCookies(HttpHeaders headers) {
         headers.add(HttpHeaders.SET_COOKIE, expiredCookie(accessTokenCookieName, "/").toString());
+        headers.add(HttpHeaders.SET_COOKIE, expiredCookie(refreshTokenCookieName, LEGACY_REFRESH_COOKIE_PATH).toString());
         headers.add(HttpHeaders.SET_COOKIE, expiredCookie(refreshTokenCookieName, "/").toString());
     }
 

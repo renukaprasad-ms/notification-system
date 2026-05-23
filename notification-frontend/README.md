@@ -39,3 +39,23 @@ Frontend default URL:
 ```text
 http://localhost:5173
 ```
+
+## Checks
+
+Run from `notification-frontend/`:
+
+```bash
+npm install
+npm run lint
+npm run build
+```
+
+## User-Facing Features
+
+- login with password or OTP
+- forgot-password reset flow
+- live inbox updates over SSE
+- unread count badge updates
+- notification search
+- mark viewed and mark read actions
+- admin user search and notification send flows

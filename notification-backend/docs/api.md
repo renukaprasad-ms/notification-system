@@ -8,6 +8,27 @@ http://localhost:8080
 
 All responses use the shared `ApiResponse` wrapper.
 
+Success shape:
+
+```json
+{
+  "status": true,
+  "status_code": 200,
+  "data": {},
+  "message": "success message"
+}
+```
+
+Error shape:
+
+```json
+{
+  "status": false,
+  "status_code": 400,
+  "error_message": "error message"
+}
+```
+
 ## Auth APIs
 
 Available auth endpoints:
@@ -23,14 +44,17 @@ Available auth endpoints:
 Important current behavior:
 
 - JWT auth uses HttpOnly cookies.
-- OTP endpoints still return raw OTP codes for development.
+- OTP values are stored hashed in the database.
+- OTP endpoints do not return raw OTP values.
+- OTP login and password-reset OTP require working mail configuration.
+- Signup currently issues auth cookies immediately after user creation.
 
 ## User APIs
 
 ### Get Current User
 
 ```http
-GET /api/users/me
+GET /api/auth/me
 ```
 
 Returns the authenticated user's profile.
@@ -66,6 +90,14 @@ Behavior:
 4. Return success after persistence succeeds.
 5. Publish delivery after commit.
 
+Required request fields:
+
+- `title`
+- `message`
+- `type`
+- `priority`
+- optional `requestId` for idempotency
+
 ### Send Notification To Selected Users
 
 ```http
@@ -75,6 +107,15 @@ POST /api/notifications/send-selected
 Admin only.
 
 Behavior is similar to send-all, but recipients are validated from the provided user id list.
+
+Required request fields:
+
+- `title`
+- `message`
+- `type`
+- `priority`
+- `recipientUserIds`
+- optional `requestId` for idempotency
 
 ### Get My Notifications
 
@@ -88,6 +129,7 @@ Notes:
 
 - Pagination is handled in the database.
 - Search supports title, message, type, and priority.
+- Search is case-insensitive.
 
 ### Mark Notification Viewed
 
@@ -129,6 +171,7 @@ Notes:
 
 - `clientId` identifies a specific browser tab or device session.
 - Multiple simultaneous connections are supported for the same user.
+- SSE uses the same cookie-based authentication as the REST APIs.
 
 ## Notification Delivery Model
 
