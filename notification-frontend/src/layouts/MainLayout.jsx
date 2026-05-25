@@ -4,7 +4,7 @@ import {
   FaBell,
   FaBars,
   FaChevronRight,
-  FaChartLine,
+  FaGrip,
   FaRightFromBracket,
   FaShieldHalved,
   FaUser,
@@ -23,14 +23,6 @@ function MainLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const pageMeta = useMemo(() => {
-    if (location.pathname.startsWith('/admin/overview')) {
-      return {
-        eyebrow: 'Overview',
-        title: 'Admin overview',
-        description: 'Track activity, audience size, and outbound notification health from one place.',
-      }
-    }
-
     if (location.pathname.startsWith('/admin')) {
       return {
         eyebrow: 'Admin',
@@ -44,6 +36,14 @@ function MainLayout() {
         eyebrow: 'Profile',
         title: 'Account details',
         description: 'Review your identity, roles, and account-level access in the workspace.',
+      }
+    }
+
+    if (location.pathname.startsWith('/dashboard')) {
+      return {
+        eyebrow: 'Dashboard',
+        title: 'Notification dashboard',
+        description: 'Track totals, unread activity, and the latest messages from one live view.',
       }
     }
 
@@ -74,7 +74,7 @@ function MainLayout() {
 
   const handleNavigateHome = () => {
     closeSidebar()
-    navigate(hasRole(['ADMIN']) ? '/admin/overview' : '/notifications')
+    navigate('/dashboard')
   }
 
   const renderSidebar = () => (
@@ -108,15 +108,13 @@ function MainLayout() {
       </div>
 
       <nav className="mt-6 space-y-2">
-        {hasRole(['ADMIN']) && (
-          <NavLink to="/admin/overview" className={navLinkClassName} onClick={closeSidebar}>
-            <span className="flex items-center gap-3">
-              <FaChartLine />
-              Overview
-            </span>
-            <FaChevronRight className="text-xs opacity-70" />
-          </NavLink>
-        )}
+        <NavLink to="/dashboard" className={navLinkClassName} onClick={closeSidebar}>
+          <span className="flex items-center gap-3">
+            <FaGrip />
+            Dashboard
+          </span>
+          <FaChevronRight className="text-xs opacity-70" />
+        </NavLink>
 
         <NavLink to="/notifications" className={navLinkClassName} onClick={closeSidebar}>
           <span className="flex items-center gap-3">

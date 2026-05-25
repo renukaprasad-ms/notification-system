@@ -3,6 +3,7 @@ package com.renuka.notification_backend.notification.controller;
 import com.renuka.notification_backend.common.response.ApiResponse;
 import com.renuka.notification_backend.common.response.PageResponse;
 import com.renuka.notification_backend.notification.dto.AdminNotificationOverviewResponse;
+import com.renuka.notification_backend.notification.dto.NotificationStatsResponse;
 import com.renuka.notification_backend.notification.dto.SendAllNotificationRequest;
 import com.renuka.notification_backend.notification.dto.SendNotificationResponse;
 import com.renuka.notification_backend.notification.dto.SendSelectedNotificationRequest;
@@ -130,6 +131,15 @@ public class NotificationController {
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(ApiResponse.success(HttpStatus.OK.value(), response, "Unread count fetched successfully"));
+    }
+
+    @GetMapping("/me/stats")
+    public ResponseEntity<ApiResponse<NotificationStatsResponse>> getMyNotificationStats(Authentication authentication) {
+        NotificationStatsResponse response = notificationService.getMyNotificationStats(authentication.getName());
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.success(HttpStatus.OK.value(), response, "Notification stats fetched successfully"));
     }
 
     @GetMapping("/admin/overview")

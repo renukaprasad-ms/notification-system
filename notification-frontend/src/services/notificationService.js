@@ -2,6 +2,7 @@ import {
   deleteNotification,
   getAdminNotificationOverview,
   getMyNotificationById,
+  getMyNotificationStats,
   getNotificationStreamUrl,
   getMyNotifications,
   getUnreadNotificationCount,
@@ -33,6 +34,11 @@ export const fetchMyNotificationById = async (recipientId) => {
 
 export const fetchUnreadNotificationCount = async () => {
   const response = await getUnreadNotificationCount()
+  return response.data
+}
+
+export const fetchMyNotificationStats = async () => {
+  const response = await getMyNotificationStats()
   return response.data
 }
 

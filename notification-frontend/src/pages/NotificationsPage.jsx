@@ -77,8 +77,18 @@ function NotificationsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
-        <label className="relative block">
+      <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] sm:p-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm text-slate-500">Search, open, and clear messages from the same live workspace.</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Notification inbox</h2>
+          </div>
+          <div className="rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-700">
+            {notifications.length} loaded
+          </div>
+        </div>
+
+        <label className="relative mt-6 block">
           <FaMagnifyingGlass className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
@@ -88,6 +98,37 @@ function NotificationsPage() {
             className="h-12 w-full rounded-2xl border border-slate-300 bg-white pl-11 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
           />
         </label>
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <article className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_35px_rgba(15,23,42,0.05)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Total loaded</p>
+          <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{notifications.length}</p>
+          <p className="mt-2 text-sm text-slate-500">Messages currently visible in this inbox view.</p>
+        </article>
+        <article className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_35px_rgba(15,23,42,0.05)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Unread</p>
+          <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+            {notifications.filter((notification) => !notification.readAt).length}
+          </p>
+          <p className="mt-2 text-sm text-slate-500">Still waiting for your attention.</p>
+        </article>
+        <article className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_35px_rgba(15,23,42,0.05)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Read</p>
+          <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+            {notifications.filter((notification) => notification.readAt).length}
+          </p>
+          <p className="mt-2 text-sm text-slate-500">Already reviewed from the current list.</p>
+        </article>
+      </div>
+
+      <div className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] sm:p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-semibold tracking-tight text-slate-950">All notifications</h3>
+            <p className="mt-1 text-sm text-slate-500">Open any row to load its full message body.</p>
+          </div>
+        </div>
       </div>
 
       {notificationsError && (
@@ -122,13 +163,7 @@ function NotificationsPage() {
             {notifications.map((notification) => (
               <article
                 key={notification.recipientId}
-                className={`rounded-[28px] border p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] transition ${
-                  notification.readAt
-                    ? 'border-slate-200 bg-white'
-                    : notification.viewedAt
-                      ? 'border-amber-200 bg-[linear-gradient(180deg,_#fffdf7_0%,_#ffffff_100%)]'
-                      : 'border-cyan-300 bg-[linear-gradient(180deg,_rgba(236,254,255,0.95)_0%,_#ffffff_55%)] ring-1 ring-cyan-100'
-                }`}
+                className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_35px_rgba(15,23,42,0.05)] transition hover:border-cyan-200 hover:shadow-[0_18px_35px_rgba(14,165,233,0.07)]"
               >
                 <div className="flex flex-col gap-4">
                   <div className="flex items-start justify-between gap-4">
@@ -139,20 +174,12 @@ function NotificationsPage() {
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <span
-                          className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${
-                            notification.readAt
-                              ? 'bg-cyan-50 text-cyan-800'
-                              : 'bg-white/90 text-cyan-900 shadow-sm'
-                          }`}
+                          className="rounded-full bg-cyan-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-800"
                         >
                           {notification.type}
                         </span>
                         <span
-                          className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${
-                            notification.readAt
-                              ? 'bg-slate-100 text-slate-700'
-                              : 'bg-slate-100/90 text-slate-800'
-                          }`}
+                          className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700"
                         >
                           {notification.priority}
                         </span>
@@ -170,7 +197,7 @@ function NotificationsPage() {
                     </button>
 
                     <div className="flex shrink-0 items-center gap-3">
-                      <div className="flex flex-col items-end gap-3">
+                      <div className="flex flex-col items-end gap-2">
                         <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                           {notification.viewedAt && !notification.readAt && (
                             <>
@@ -196,6 +223,10 @@ function NotificationsPage() {
                             <>Unread</>
                           )}
                         </div>
+
+                        <p className="text-xs font-medium text-slate-400">
+                          {notification.createdAt ? new Date(notification.createdAt).toLocaleString() : ''}
+                        </p>
                       </div>
 
                       {isAdmin && (
@@ -214,7 +245,7 @@ function NotificationsPage() {
                   </div>
 
                   {expandedRecipientId === notification.recipientId && (
-                    <div className="rounded-[22px] border border-slate-200 bg-white/80 px-5 py-4">
+                    <div className="rounded-[22px] border border-slate-200 bg-slate-50 px-5 py-4">
                       {loadingDetailRecipientId === notification.recipientId && !notification.detailLoaded ? (
                         <p className="text-sm text-slate-500">Loading notification details...</p>
                       ) : (

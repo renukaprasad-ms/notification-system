@@ -30,6 +30,10 @@ export const getUnreadNotificationCount = () => {
   return apiClient.get('/notifications/me/unread-count')
 }
 
+export const getMyNotificationStats = () => {
+  return apiClient.get('/notifications/me/stats')
+}
+
 export const getAdminNotificationOverview = () => {
   return apiClient.get('/notifications/admin/overview')
 }

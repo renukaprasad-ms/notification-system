@@ -6,6 +6,7 @@ import com.renuka.notification_backend.common.exception.UnauthorizedException;
 import com.renuka.notification_backend.common.response.PageResponse;
 import com.renuka.notification_backend.common.utils.RedisRateLimitService;
 import com.renuka.notification_backend.notification.dto.AdminNotificationOverviewResponse;
+import com.renuka.notification_backend.notification.dto.NotificationStatsResponse;
 import com.renuka.notification_backend.notification.dto.SendAllNotificationRequest;
 import com.renuka.notification_backend.notification.dto.SendNotificationResponse;
 import com.renuka.notification_backend.notification.dto.SendSelectedNotificationRequest;
@@ -248,6 +249,18 @@ public class NotificationService {
                 () -> notificationRecipientRepository.countByUserIdAndReadAtIsNull(user.getId())
         );
         return new UnreadCountResponse(unreadCount);
+    }
+
+    @Transactional(readOnly = true)
+    public NotificationStatsResponse getMyNotificationStats(String userEmail) {
+        User user = getActiveUser(userEmail);
+        long totalNotifications = notificationRecipientRepository.countByUserId(user.getId());
+        long unreadNotifications = unreadCountCacheService.getUnreadCount(
+                user.getId(),
+                () -> notificationRecipientRepository.countByUserIdAndReadAtIsNull(user.getId())
+        );
+        long readNotifications = notificationRecipientRepository.countByUserIdAndReadAtIsNotNull(user.getId());
+        return new NotificationStatsResponse(totalNotifications, unreadNotifications, readNotifications);
     }
 
     @Transactional(readOnly = true)
