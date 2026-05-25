@@ -231,7 +231,7 @@ function DashboardPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-cyan-700">Admin actions</p>
-              <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Everything you need without a separate overview.</h2>
+              <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Everything you need .</h2>
             </div>
           </div>
 
