@@ -27,6 +27,7 @@ The backend currently includes:
 - Retry worker for failed notification delivery attempts.
 - Idempotency support for admin notification creation.
 - A dedicated `test` profile so `./mvnw test` can boot without production environment variables.
+- Integration tests for auth cookies, login validation, notification inbox flow, unread count, and mark-read behavior.
 
 ## Recommended Reading Order
 

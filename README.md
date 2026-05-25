@@ -57,7 +57,7 @@ This repository is organized as a submission-ready full-stack project:
 - architecture, API, schema, and infrastructure docs are included
 - AI usage is declared in [AI_USAGE.md](./AI_USAGE.md)
 - frontend production checks pass
-- backend tests boot with a dedicated `test` profile
+- backend tests run with a dedicated `test` profile and include auth plus notification integration coverage
 
 ## Architecture Summary
 
@@ -249,7 +249,7 @@ That is the core mechanism that keeps realtime behavior working across multiple 
 
 ## Known Next Improvements
 
-- add automated tests for auth, notification, and retry flows
+- extend automated tests for OTP, refresh/logout, SSE delivery, and retry flows
 - expose actuator health endpoints for stronger Kubernetes probes
 - move very large fanout delivery to an outbox or queue model such as Redis Streams
 

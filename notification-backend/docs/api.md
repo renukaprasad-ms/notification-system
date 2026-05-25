@@ -40,6 +40,8 @@ Available auth endpoints:
 - `POST /api/auth/logout`
 - `POST /api/auth/forgot-password/otp`
 - `POST /api/auth/reset-password`
+- `GET /api/auth/me`
+- `GET /api/auth/admin/me`
 
 Important current behavior:
 
@@ -54,7 +56,7 @@ Important current behavior:
 ### Get Current User
 
 ```http
-GET /api/auth/me
+GET /api/users/me
 ```
 
 Returns the authenticated user's profile.
@@ -62,7 +64,7 @@ Returns the authenticated user's profile.
 ### Admin User List
 
 ```http
-GET /api/users/admin/all?page=0&size=20&search=value
+GET /api/users?page=0&size=20&search=value
 ```
 
 Returns a paginated user list for admins.
@@ -143,6 +145,12 @@ PATCH /api/notifications/{recipientId}/viewed
 PATCH /api/notifications/{recipientId}/read
 ```
 
+### Get Notification Detail
+
+```http
+GET /api/notifications/me/{recipientId}
+```
+
 ### Get Unread Count
 
 ```http
@@ -153,6 +161,20 @@ GET /api/notifications/me/unread-count
 
 ```http
 GET /api/notifications/admin/overview
+```
+
+Admin only.
+
+### Get My Notification Stats
+
+```http
+GET /api/notifications/me/stats
+```
+
+### Delete Notification
+
+```http
+DELETE /api/notifications/{notificationId}
 ```
 
 Admin only.
