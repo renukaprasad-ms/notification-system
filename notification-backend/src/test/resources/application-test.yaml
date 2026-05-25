@@ -31,5 +31,7 @@ app:
     pubsub:
       enabled: false
   notification:
+    queue:
+      enabled: false
     retry:
       enabled: false

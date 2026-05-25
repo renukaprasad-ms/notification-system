@@ -86,6 +86,14 @@ app:
         limit: ${ADMIN_NOTIFICATION_RATE_LIMIT:20}
         window-minutes: ${ADMIN_NOTIFICATION_RATE_LIMIT_WINDOW_MINUTES:1}
   notification:
+    queue:
+      enabled: ${NOTIFICATION_QUEUE_ENABLED:true}
+      stream-key: ${NOTIFICATION_QUEUE_STREAM_KEY:notification:dispatch}
+      consumer-group: ${NOTIFICATION_QUEUE_CONSUMER_GROUP:notification-dispatchers}
+      fixed-delay-millis: ${NOTIFICATION_QUEUE_FIXED_DELAY_MILLIS:1000}
+      initial-delay-millis: ${NOTIFICATION_QUEUE_INITIAL_DELAY_MILLIS:1000}
+      batch-size: ${NOTIFICATION_QUEUE_BATCH_SIZE:100}
+      block-timeout-millis: ${NOTIFICATION_QUEUE_BLOCK_TIMEOUT_MILLIS:1000}
     retry:
       enabled: ${NOTIFICATION_RETRY_ENABLED:true}
       fixed-delay-millis: ${NOTIFICATION_RETRY_FIXED_DELAY_MILLIS:30000}

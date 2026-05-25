@@ -21,6 +21,7 @@ public class NotificationDispatchService {
     private static final int LIVE_PUBLISH_BATCH_SIZE = 250;
 
     private final NotificationRecipientRepository notificationRecipientRepository;
+    private final NotificationQueueService notificationQueueService;
     private final NotificationRedisPublisher notificationRedisPublisher;
     private final NotificationStreamService notificationStreamService;
     private final NotificationDeliveryTrackingService notificationDeliveryTrackingService;
@@ -30,6 +31,7 @@ public class NotificationDispatchService {
 
     public NotificationDispatchService(
             NotificationRecipientRepository notificationRecipientRepository,
+            NotificationQueueService notificationQueueService,
             NotificationRedisPublisher notificationRedisPublisher,
             NotificationStreamService notificationStreamService,
             NotificationDeliveryTrackingService notificationDeliveryTrackingService,
@@ -38,6 +40,7 @@ public class NotificationDispatchService {
             @Value("${app.redis.pubsub.enabled:true}") boolean pubSubEnabled
     ) {
         this.notificationRecipientRepository = notificationRecipientRepository;
+        this.notificationQueueService = notificationQueueService;
         this.notificationRedisPublisher = notificationRedisPublisher;
         this.notificationStreamService = notificationStreamService;
         this.notificationDeliveryTrackingService = notificationDeliveryTrackingService;
@@ -48,6 +51,10 @@ public class NotificationDispatchService {
 
     @Async("notificationDispatchExecutor")
     public void dispatchRecipients(List<NotificationRecipient> recipients) {
+        if (notificationQueueService.enqueueRecipientIds(recipients.stream().map(NotificationRecipient::getId).toList())) {
+            return;
+        }
+
         publishAndTrack(recipients);
     }
 
@@ -65,7 +72,10 @@ public class NotificationDispatchService {
                     notificationId,
                     PageRequest.of(pageNumber, LIVE_PUBLISH_BATCH_SIZE, Sort.by(Sort.Direction.ASC, "createdAt"))
             );
-            publishAndTrack(page.getContent());
+            List<NotificationRecipient> recipients = page.getContent();
+            if (!notificationQueueService.enqueueRecipientIds(recipients.stream().map(NotificationRecipient::getId).toList())) {
+                publishAndTrack(recipients);
+            }
             pageNumber++;
         } while (page.hasNext());
     }

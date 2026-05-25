@@ -38,6 +38,10 @@ export const markNotificationRead = (recipientId) => {
   return apiClient.patch(`/notifications/${recipientId}/read`)
 }
 
+export const deleteNotification = (notificationId) => {
+  return apiClient.delete(`/notifications/${notificationId}`)
+}
+
 export const getNotificationStreamUrl = () => {
   if (typeof window === 'undefined') {
     return `${API_BASE_URL}/notifications/stream`

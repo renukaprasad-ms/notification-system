@@ -25,6 +25,7 @@ public class NotificationRetryWorker {
 
     private final NotificationRecipientRepository notificationRecipientRepository;
     private final NotificationDeliveryAttemptRepository notificationDeliveryAttemptRepository;
+    private final NotificationQueueService notificationQueueService;
     private final NotificationRedisPublisher notificationRedisPublisher;
     private final NotificationStreamService notificationStreamService;
     private final NotificationDeliveryTrackingService notificationDeliveryTrackingService;
@@ -38,6 +39,7 @@ public class NotificationRetryWorker {
     public NotificationRetryWorker(
             NotificationRecipientRepository notificationRecipientRepository,
             NotificationDeliveryAttemptRepository notificationDeliveryAttemptRepository,
+            NotificationQueueService notificationQueueService,
             NotificationRedisPublisher notificationRedisPublisher,
             NotificationStreamService notificationStreamService,
             NotificationDeliveryTrackingService notificationDeliveryTrackingService,
@@ -50,6 +52,7 @@ public class NotificationRetryWorker {
     ) {
         this.notificationRecipientRepository = notificationRecipientRepository;
         this.notificationDeliveryAttemptRepository = notificationDeliveryAttemptRepository;
+        this.notificationQueueService = notificationQueueService;
         this.notificationRedisPublisher = notificationRedisPublisher;
         this.notificationStreamService = notificationStreamService;
         this.notificationDeliveryTrackingService = notificationDeliveryTrackingService;
@@ -93,6 +96,10 @@ public class NotificationRetryWorker {
     }
 
     private void retryRecipient(NotificationRecipient recipient) {
+        if (notificationQueueService.enqueueRecipientIds(List.of(recipient.getId()))) {
+            return;
+        }
+
         if (redisEnabled && pubSubEnabled && notificationRedisPublisher.publish(List.of(recipient))) {
             return;
         }

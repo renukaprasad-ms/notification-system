@@ -1,4 +1,5 @@
 import {
+  deleteNotification,
   getAdminNotificationOverview,
   getNotificationStreamUrl,
   getMyNotifications,
@@ -41,6 +42,11 @@ export const markAsViewed = async (recipientId) => {
 
 export const markAsRead = async (recipientId) => {
   const response = await markNotificationRead(recipientId)
+  return response.data
+}
+
+export const deleteAdminNotification = async (notificationId) => {
+  const response = await deleteNotification(notificationId)
   return response.data
 }
 

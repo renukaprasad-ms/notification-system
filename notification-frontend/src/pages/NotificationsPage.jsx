@@ -2,14 +2,19 @@ import { useEffect } from 'react'
 import {
   FaCircleCheck,
   FaCircleDot,
+  FaTrashCan,
   FaEnvelopeOpenText,
   FaEye,
   FaMagnifyingGlass,
 } from 'react-icons/fa6'
+import { useAuth } from '../hooks/useAuth'
+import { getApiErrorMessage } from '../utils/apiError'
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
 import { useNotifications } from '../hooks/useNotifications'
+import { useState } from 'react'
 
 function NotificationsPage() {
+  const { hasRole } = useAuth()
   const {
     notifications,
     notificationsError,
@@ -21,7 +26,11 @@ function NotificationsPage() {
     setNotificationSearchQuery,
     markNotificationRead,
     markNotificationViewed,
+    deleteNotificationById,
   } = useNotifications()
+  const [deleteError, setDeleteError] = useState('')
+  const [deletingNotificationId, setDeletingNotificationId] = useState('')
+  const isAdmin = hasRole(['ADMIN'])
 
   const loadMoreRef = useInfiniteScroll({
     enabled: true,
@@ -36,6 +45,18 @@ function NotificationsPage() {
       markNotificationViewed(notification.recipientId).catch(() => {})
     })
   }, [markNotificationViewed, notifications])
+
+  const handleDeleteNotification = async (notificationId) => {
+    try {
+      setDeleteError('')
+      setDeletingNotificationId(notificationId)
+      await deleteNotificationById(notificationId)
+    } catch (apiError) {
+      setDeleteError(getApiErrorMessage(apiError, 'Unable to delete notification.'))
+    } finally {
+      setDeletingNotificationId('')
+    }
+  }
 
   return (
     <section className="space-y-6">
@@ -55,6 +76,12 @@ function NotificationsPage() {
       {notificationsError && (
         <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {notificationsError}
+        </p>
+      )}
+
+      {deleteError && (
+        <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          {deleteError}
         </p>
       )}
 
@@ -149,6 +176,18 @@ function NotificationsPage() {
                       >
                         <FaEnvelopeOpenText />
                         Mark as read
+                      </button>
+                    )}
+
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteNotification(notification.notificationId)}
+                        disabled={deletingNotificationId === notification.notificationId}
+                        className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <FaTrashCan />
+                        {deletingNotificationId === notification.notificationId ? 'Deleting...' : 'Delete'}
                       </button>
                     )}
                   </div>

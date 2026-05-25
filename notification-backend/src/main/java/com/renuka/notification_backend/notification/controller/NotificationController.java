@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -126,5 +127,18 @@ public class NotificationController {
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(ApiResponse.success(HttpStatus.OK.value(), response, "Admin overview fetched successfully"));
+    }
+
+    @DeleteMapping("/{notificationId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteNotification(
+            @PathVariable UUID notificationId,
+            Authentication authentication
+    ) {
+        notificationService.deleteNotification(notificationId, authentication.getName());
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.success(HttpStatus.OK.value(), null, "Notification deleted successfully"));
     }
 }

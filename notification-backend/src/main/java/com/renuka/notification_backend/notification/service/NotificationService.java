@@ -14,6 +14,7 @@ import com.renuka.notification_backend.notification.dto.UserNotificationResponse
 import com.renuka.notification_backend.notification.entity.Notification;
 import com.renuka.notification_backend.notification.entity.NotificationRecipient;
 import com.renuka.notification_backend.notification.realtime.NotificationStreamService;
+import com.renuka.notification_backend.notification.repository.NotificationDeliveryAttemptRepository;
 import com.renuka.notification_backend.notification.repository.NotificationRecipientRepository;
 import com.renuka.notification_backend.notification.repository.NotificationRepository;
 import com.renuka.notification_backend.user.entity.User;
@@ -42,6 +43,7 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationRecipientRepository notificationRecipientRepository;
+    private final NotificationDeliveryAttemptRepository notificationDeliveryAttemptRepository;
     private final UserRepository userRepository;
     private final NotificationStreamService notificationStreamService;
     private final NotificationDispatchService notificationDispatchService;
@@ -53,6 +55,7 @@ public class NotificationService {
     public NotificationService(
             NotificationRepository notificationRepository,
             NotificationRecipientRepository notificationRecipientRepository,
+            NotificationDeliveryAttemptRepository notificationDeliveryAttemptRepository,
             UserRepository userRepository,
             NotificationStreamService notificationStreamService,
             NotificationDispatchService notificationDispatchService,
@@ -63,6 +66,7 @@ public class NotificationService {
     ) {
         this.notificationRepository = notificationRepository;
         this.notificationRecipientRepository = notificationRecipientRepository;
+        this.notificationDeliveryAttemptRepository = notificationDeliveryAttemptRepository;
         this.userRepository = userRepository;
         this.notificationStreamService = notificationStreamService;
         this.notificationDispatchService = notificationDispatchService;
@@ -229,6 +233,25 @@ public class NotificationService {
         long activeUsers = userRepository.countByActiveTrue();
 
         return new AdminNotificationOverviewResponse(notificationsSent, activeUsers);
+    }
+
+    @Transactional
+    public void deleteNotification(UUID notificationId, String adminEmail) {
+        getActiveUser(adminEmail);
+
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new NotFoundException("Notification not found"));
+
+        List<UUID> unreadUserIds = notificationRecipientRepository.findUnreadUserIdsByNotificationId(notificationId);
+        List<UUID> recipientIds = notificationRecipientRepository.findIdsByNotificationId(notificationId);
+
+        if (!recipientIds.isEmpty()) {
+            notificationDeliveryAttemptRepository.deleteAllByNotificationRecipientIdIn(recipientIds);
+        }
+
+        notificationRecipientRepository.deleteAllByNotificationId(notificationId);
+        notificationRepository.delete(notification);
+        unreadUserIds.forEach(unreadCountCacheService::evictUnreadCount);
     }
 
     private NotificationRecipient toRecipient(Notification notification, User user) {

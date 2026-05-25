@@ -22,11 +22,42 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
     @EntityGraph(attributePaths = {"notification", "user"})
     Page<NotificationRecipient> findByNotificationId(UUID notificationId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"notification", "user"})
+    Optional<NotificationRecipient> findDetailedById(UUID id);
+
     Optional<NotificationRecipient> findByIdAndUserId(UUID id, UUID userId);
 
     long countByUserIdAndReadAtIsNull(UUID userId);
 
     long countByNotificationId(UUID notificationId);
+
+    @Query(
+            """
+            select nr.id
+            from NotificationRecipient nr
+            where nr.notification.id = :notificationId
+            """
+    )
+    List<UUID> findIdsByNotificationId(@Param("notificationId") UUID notificationId);
+
+    @Query(
+            """
+            select distinct nr.user.id
+            from NotificationRecipient nr
+            where nr.notification.id = :notificationId
+              and nr.readAt is null
+            """
+    )
+    List<UUID> findUnreadUserIdsByNotificationId(@Param("notificationId") UUID notificationId);
+
+    @Modifying
+    @Query(
+            """
+            delete from NotificationRecipient nr
+            where nr.notification.id = :notificationId
+            """
+    )
+    int deleteAllByNotificationId(@Param("notificationId") UUID notificationId);
 
     @Modifying
     @Query(

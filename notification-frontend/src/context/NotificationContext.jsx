@@ -4,6 +4,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useSSE } from '../hooks/useSSE'
 import {
   createNotificationStream,
+  deleteAdminNotification,
   fetchMyNotifications,
   fetchUnreadNotificationCount,
   markAsRead,
@@ -59,6 +60,7 @@ export function NotificationProvider({ children }) {
   const notificationsRef = useRef([])
   const viewedInFlightRef = useRef(new Set())
   const readInFlightRef = useRef(new Set())
+  const deleteInFlightRef = useRef(new Set())
   const debouncedNotificationSearchQuery = useDebouncedValue(notificationSearchQuery, 300)
 
   useEffect(() => {
@@ -238,6 +240,30 @@ export function NotificationProvider({ children }) {
     }
   }, [])
 
+  const deleteNotificationById = useCallback(async (notificationId) => {
+    if (!notificationId || deleteInFlightRef.current.has(notificationId)) {
+      return
+    }
+
+    deleteInFlightRef.current.add(notificationId)
+
+    try {
+      await deleteAdminNotification(notificationId)
+
+      const removedNotifications = notificationsRef.current.filter((notification) => notification.notificationId === notificationId)
+      const removedUnreadCount = removedNotifications.filter((notification) => !notification.readAt).length
+
+      setNotifications((existing) => existing.filter((notification) => notification.notificationId !== notificationId))
+      setUnreadCount((currentCount) => Math.max(0, currentCount - removedUnreadCount))
+      setNotificationPageInfo((current) => ({
+        ...current,
+        totalItems: Math.max(0, current.totalItems - removedNotifications.length),
+      }))
+    } finally {
+      deleteInFlightRef.current.delete(notificationId)
+    }
+  }, [])
+
   const loadMoreNotifications = useCallback(async () => {
     if (isLoadingMoreNotifications || isLoadingNotifications || !notificationPageInfo.hasNext) {
       return
@@ -275,6 +301,7 @@ export function NotificationProvider({ children }) {
       setNotificationSearchQuery,
       markNotificationViewed,
       markNotificationRead,
+      deleteNotificationById,
     }),
     [
       hasMoreNotifications,
@@ -283,6 +310,7 @@ export function NotificationProvider({ children }) {
       isStreamConnected,
       loadNotifications,
       loadMoreNotifications,
+      deleteNotificationById,
       markNotificationRead,
       markNotificationViewed,
       notifications,
