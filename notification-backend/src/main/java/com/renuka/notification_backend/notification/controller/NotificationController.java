@@ -8,6 +8,7 @@ import com.renuka.notification_backend.notification.dto.SendNotificationResponse
 import com.renuka.notification_backend.notification.dto.SendSelectedNotificationRequest;
 import com.renuka.notification_backend.notification.dto.UnreadCountResponse;
 import com.renuka.notification_backend.notification.dto.UserNotificationResponse;
+import com.renuka.notification_backend.notification.dto.UserNotificationSummaryResponse;
 import com.renuka.notification_backend.notification.service.NotificationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -73,17 +74,29 @@ public class NotificationController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<PageResponse<UserNotificationResponse>>> getMyNotifications(
+    public ResponseEntity<ApiResponse<PageResponse<UserNotificationSummaryResponse>>> getMyNotifications(
             Authentication authentication,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String search
     ) {
-        PageResponse<UserNotificationResponse> response = notificationService.getMyNotifications(authentication.getName(), page, size, search);
+        PageResponse<UserNotificationSummaryResponse> response = notificationService.getMyNotifications(authentication.getName(), page, size, search);
 
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(ApiResponse.success(HttpStatus.OK.value(), response, "Notifications fetched successfully"));
+    }
+
+    @GetMapping("/me/{recipientId}")
+    public ResponseEntity<ApiResponse<UserNotificationResponse>> getMyNotificationById(
+            @PathVariable UUID recipientId,
+            Authentication authentication
+    ) {
+        UserNotificationResponse response = notificationService.getMyNotificationById(recipientId, authentication.getName());
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.success(HttpStatus.OK.value(), response, "Notification fetched successfully"));
     }
 
     @PatchMapping("/{recipientId}/viewed")

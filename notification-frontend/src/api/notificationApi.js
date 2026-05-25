@@ -22,6 +22,10 @@ export const getMyNotifications = ({ page = 0, size = 20, search = '' } = {}) =>
   })
 }
 
+export const getMyNotificationById = (recipientId) => {
+  return apiClient.get(`/notifications/me/${recipientId}`)
+}
+
 export const getUnreadNotificationCount = () => {
   return apiClient.get('/notifications/me/unread-count')
 }

@@ -1,6 +1,7 @@
 import {
   deleteNotification,
   getAdminNotificationOverview,
+  getMyNotificationById,
   getNotificationStreamUrl,
   getMyNotifications,
   getUnreadNotificationCount,
@@ -22,6 +23,11 @@ export const createNotificationForSelected = async (payload) => {
 
 export const fetchMyNotifications = async (params) => {
   const response = await getMyNotifications(params)
+  return response.data
+}
+
+export const fetchMyNotificationById = async (recipientId) => {
+  const response = await getMyNotificationById(recipientId)
   return response.data
 }
 

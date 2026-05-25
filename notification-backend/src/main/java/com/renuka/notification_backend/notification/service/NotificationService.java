@@ -11,6 +11,7 @@ import com.renuka.notification_backend.notification.dto.SendNotificationResponse
 import com.renuka.notification_backend.notification.dto.SendSelectedNotificationRequest;
 import com.renuka.notification_backend.notification.dto.UnreadCountResponse;
 import com.renuka.notification_backend.notification.dto.UserNotificationResponse;
+import com.renuka.notification_backend.notification.dto.UserNotificationSummaryResponse;
 import com.renuka.notification_backend.notification.entity.Notification;
 import com.renuka.notification_backend.notification.entity.NotificationRecipient;
 import com.renuka.notification_backend.notification.realtime.NotificationStreamService;
@@ -171,7 +172,7 @@ public class NotificationService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<UserNotificationResponse> getMyNotifications(String userEmail, int page, int size, String search) {
+    public PageResponse<UserNotificationSummaryResponse> getMyNotifications(String userEmail, int page, int size, String search) {
         User user = getActiveUser(userEmail);
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 100);
@@ -182,7 +183,30 @@ public class NotificationService {
                 ? notificationRecipientRepository.findByUserId(user.getId(), pageable)
                 : notificationRecipientRepository.findUserNotifications(user.getId(), normalizedSearch, pageable);
 
-        return PageResponse.from(pageResult.map(this::toUserNotificationResponse));
+        return PageResponse.from(pageResult.map(this::toUserNotificationSummaryResponse));
+    }
+
+    @Transactional
+    public UserNotificationResponse getMyNotificationById(UUID recipientId, String userEmail) {
+        User user = getActiveUser(userEmail);
+        NotificationRecipient recipient = getOwnedRecipient(recipientId, user);
+        LocalDateTime now = LocalDateTime.now();
+        boolean unreadBeforeOpen = recipient.getReadAt() == null;
+
+        if (recipient.getViewedAt() == null) {
+            recipient.setViewedAt(now);
+        }
+
+        if (recipient.getReadAt() == null) {
+            recipient.setReadAt(now);
+        }
+
+        NotificationRecipient updatedRecipient = notificationRecipientRepository.save(recipient);
+        if (unreadBeforeOpen) {
+            unreadCountCacheService.decrementUnreadCount(user.getId());
+        }
+
+        return toUserNotificationResponse(updatedRecipient);
     }
 
     @Transactional
@@ -279,6 +303,22 @@ public class NotificationService {
                 notification.getId(),
                 notification.getTitle(),
                 notification.getMessage(),
+                notification.getType(),
+                notification.getPriority(),
+                recipient.getDeliveryStatus(),
+                recipient.getDeliveredAt(),
+                recipient.getViewedAt(),
+                recipient.getReadAt(),
+                recipient.getCreatedAt()
+        );
+    }
+
+    private UserNotificationSummaryResponse toUserNotificationSummaryResponse(NotificationRecipient recipient) {
+        Notification notification = recipient.getNotification();
+        return new UserNotificationSummaryResponse(
+                recipient.getId(),
+                notification.getId(),
+                notification.getTitle(),
                 notification.getType(),
                 notification.getPriority(),
                 recipient.getDeliveryStatus(),

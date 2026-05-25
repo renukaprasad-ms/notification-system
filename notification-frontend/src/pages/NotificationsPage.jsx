@@ -1,9 +1,9 @@
-import { useEffect } from 'react'
 import {
+  FaChevronDown,
+  FaChevronUp,
   FaCircleCheck,
   FaCircleDot,
   FaTrashCan,
-  FaEnvelopeOpenText,
   FaEye,
   FaMagnifyingGlass,
 } from 'react-icons/fa6'
@@ -24,12 +24,14 @@ function NotificationsPage() {
     hasMoreNotifications,
     loadMoreNotifications,
     setNotificationSearchQuery,
-    markNotificationRead,
-    markNotificationViewed,
+    loadNotificationDetail,
     deleteNotificationById,
   } = useNotifications()
   const [deleteError, setDeleteError] = useState('')
+  const [detailError, setDetailError] = useState('')
+  const [expandedRecipientId, setExpandedRecipientId] = useState('')
   const [deletingNotificationId, setDeletingNotificationId] = useState('')
+  const [loadingDetailRecipientId, setLoadingDetailRecipientId] = useState('')
   const isAdmin = hasRole(['ADMIN'])
 
   const loadMoreRef = useInfiniteScroll({
@@ -38,13 +40,6 @@ function NotificationsPage() {
     isLoading: isLoadingNotifications || isLoadingMoreNotifications,
     onLoadMore: loadMoreNotifications,
   })
-
-  useEffect(() => {
-    const unseenNotifications = notifications.filter((notification) => !notification.viewedAt)
-    unseenNotifications.forEach((notification) => {
-      markNotificationViewed(notification.recipientId).catch(() => {})
-    })
-  }, [markNotificationViewed, notifications])
 
   const handleDeleteNotification = async (notificationId) => {
     try {
@@ -58,6 +53,28 @@ function NotificationsPage() {
     }
   }
 
+  const handleToggleNotification = async (notification) => {
+    const isExpanded = expandedRecipientId === notification.recipientId
+    if (isExpanded) {
+      setExpandedRecipientId('')
+      return
+    }
+
+    try {
+      setDetailError('')
+      setExpandedRecipientId(notification.recipientId)
+
+      if (!notification.detailLoaded) {
+        setLoadingDetailRecipientId(notification.recipientId)
+        await loadNotificationDetail(notification.recipientId)
+      }
+    } catch (apiError) {
+      setDetailError(getApiErrorMessage(apiError, 'Unable to load notification details.'))
+    } finally {
+      setLoadingDetailRecipientId('')
+    }
+  }
+
   return (
     <section className="space-y-6">
       <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
@@ -67,7 +84,7 @@ function NotificationsPage() {
             type="text"
             value={notificationSearchQuery}
             onChange={(event) => setNotificationSearchQuery(event.target.value)}
-            placeholder="Search notifications by title, message, type, or priority"
+            placeholder="Search notifications by title, type, or priority"
             className="h-12 w-full rounded-2xl border border-slate-300 bg-white pl-11 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
           />
         </label>
@@ -82,6 +99,12 @@ function NotificationsPage() {
       {deleteError && (
         <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {deleteError}
+        </p>
+      )}
+
+      {detailError && (
+        <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          {detailError}
         </p>
       )}
 
@@ -107,90 +130,106 @@ function NotificationsPage() {
                       : 'border-cyan-300 bg-[linear-gradient(180deg,_rgba(236,254,255,0.95)_0%,_#ffffff_55%)] ring-1 ring-cyan-100'
                 }`}
               >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${
-                          notification.readAt
-                            ? 'bg-cyan-50 text-cyan-800'
-                            : 'bg-white/90 text-cyan-900 shadow-sm'
-                        }`}
-                      >
-                        {notification.type}
-                      </span>
-                      <span
-                        className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${
-                          notification.readAt
-                            ? 'bg-slate-100 text-slate-700'
-                            : 'bg-slate-100/90 text-slate-800'
-                        }`}
-                      >
-                        {notification.priority}
-                      </span>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleNotification(notification)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${
+                            notification.readAt
+                              ? 'bg-cyan-50 text-cyan-800'
+                              : 'bg-white/90 text-cyan-900 shadow-sm'
+                          }`}
+                        >
+                          {notification.type}
+                        </span>
+                        <span
+                          className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${
+                            notification.readAt
+                              ? 'bg-slate-100 text-slate-700'
+                              : 'bg-slate-100/90 text-slate-800'
+                          }`}
+                        >
+                          {notification.priority}
+                        </span>
+                      </div>
+                      <div className="mt-4 flex items-center gap-3">
+                        <h2 className="min-w-0 truncate text-xl font-semibold tracking-tight text-slate-950">
+                          {notification.title}
+                        </h2>
+                        {expandedRecipientId === notification.recipientId ? (
+                          <FaChevronUp className="shrink-0 text-slate-400" />
+                        ) : (
+                          <FaChevronDown className="shrink-0 text-slate-400" />
+                        )}
+                      </div>
+                    </button>
+
+                    <div className="flex shrink-0 items-center gap-3">
+                      <div className="flex flex-col items-end gap-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                          {notification.viewedAt && !notification.readAt && (
+                            <>
+                              <FaEye className="text-amber-600" />
+                              Viewed
+                            </>
+                          )}
+                          {!notification.viewedAt && !notification.readAt && (
+                            <>
+                              <FaCircleDot className="text-cyan-600" />
+                              New
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                          {notification.readAt ? (
+                            <>
+                              <FaCircleCheck className="text-emerald-600" />
+                              Read
+                            </>
+                          ) : (
+                            <>Unread</>
+                          )}
+                        </div>
+                      </div>
+
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteNotification(notification.notificationId)}
+                          disabled={deletingNotificationId === notification.notificationId}
+                          aria-label="Delete notification"
+                          title="Delete notification"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <FaTrashCan />
+                        </button>
+                      )}
                     </div>
-                    <h2 className="mt-4 text-xl font-semibold tracking-tight text-slate-950">
-                      {notification.title}
-                    </h2>
-                    <p className={`mt-3 text-sm leading-7 ${notification.readAt ? 'text-slate-600' : 'text-slate-700'}`}>
-                      {notification.message}
-                    </p>
                   </div>
 
-                  <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                      {notification.viewedAt && !notification.readAt && (
-                        <>
-                          <FaEye className="text-amber-600" />
-                          Viewed
-                        </>
-                      )}
-                      {!notification.viewedAt && !notification.readAt && (
-                        <>
-                          <FaCircleDot className="text-cyan-600" />
-                          New
-                        </>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                      {notification.readAt ? (
-                        <>
-                          <FaCircleCheck className="text-emerald-600" />
-                          Read
-                        </>
+                  {expandedRecipientId === notification.recipientId && (
+                    <div className="rounded-[22px] border border-slate-200 bg-white/80 px-5 py-4">
+                      {loadingDetailRecipientId === notification.recipientId && !notification.detailLoaded ? (
+                        <p className="text-sm text-slate-500">Loading notification details...</p>
                       ) : (
-                        <>Unread</>
+                        <>
+                          <p className="text-sm leading-7 text-slate-700">
+                            {notification.message}
+                          </p>
+                          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            <span>{notification.deliveryStatus}</span>
+                            <span>{notification.createdAt ? new Date(notification.createdAt).toLocaleString() : ''}</span>
+                          </div>
+                        </>
                       )}
                     </div>
-
-                    {!notification.readAt && (
-                      <button
-                        type="button"
-                        onClick={() => markNotificationRead(notification.recipientId)}
-                        className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition ${
-                          notification.viewedAt
-                            ? 'border border-amber-200 bg-white text-slate-700 hover:border-amber-300 hover:text-amber-700'
-                            : 'border border-cyan-300 bg-white text-cyan-800 hover:border-cyan-400 hover:bg-cyan-50'
-                        }`}
-                      >
-                        <FaEnvelopeOpenText />
-                        Mark as read
-                      </button>
-                    )}
-
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteNotification(notification.notificationId)}
-                        disabled={deletingNotificationId === notification.notificationId}
-                        className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <FaTrashCan />
-                        {deletingNotificationId === notification.notificationId ? 'Deleting...' : 'Delete'}
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
               </article>
             ))}

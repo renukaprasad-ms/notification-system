@@ -10,6 +10,7 @@ import {
   FaUser,
   FaXmark,
 } from 'react-icons/fa6'
+import BrandMark from '../components/common/BrandMark'
 import { useAuth } from '../hooks/useAuth'
 import { useNotifications } from '../hooks/useNotifications'
 
@@ -83,12 +84,10 @@ function MainLayout() {
         onClick={handleNavigateHome}
         className="flex items-center gap-3 rounded-2xl px-2 py-2 text-left"
       >
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500 text-slate-950">
-          <FaBell />
-        </div>
+        <BrandMark />
         <div>
           <p className="text-sm font-semibold text-slate-950">Notification Hub</p>
-          <p className="text-xs text-slate-500">Realtime workspace</p>
+          <p className="text-xs text-slate-500">Signal-driven workspace</p>
         </div>
       </button>
 
@@ -184,9 +183,7 @@ function MainLayout() {
                 onClick={handleNavigateHome}
                 className="flex min-w-0 items-center gap-3 text-left"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-500 text-slate-950">
-                  <FaBell />
-                </div>
+                <BrandMark compact />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-slate-950">Notification Hub</p>
                   <p className="truncate text-xs text-slate-500">{pageMeta.eyebrow}</p>

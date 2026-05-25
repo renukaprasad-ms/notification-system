@@ -5,6 +5,7 @@ import { useSSE } from '../hooks/useSSE'
 import {
   createNotificationStream,
   deleteAdminNotification,
+  fetchMyNotificationById,
   fetchMyNotifications,
   fetchUnreadNotificationCount,
   markAsRead,
@@ -26,7 +27,6 @@ const matchesNotificationSearch = (notification, searchQuery) => {
 
   return [
     notification.title,
-    notification.message,
     notification.type,
     notification.priority,
   ]
@@ -61,6 +61,7 @@ export function NotificationProvider({ children }) {
   const viewedInFlightRef = useRef(new Set())
   const readInFlightRef = useRef(new Set())
   const deleteInFlightRef = useRef(new Set())
+  const detailInFlightRef = useRef(new Set())
   const debouncedNotificationSearchQuery = useDebouncedValue(notificationSearchQuery, 300)
 
   useEffect(() => {
@@ -161,6 +162,7 @@ export function NotificationProvider({ children }) {
       deliveredAt: payload.createdAt,
       viewedAt: null,
       readAt: null,
+      detailLoaded: false,
     }
 
     setNotifications((current) => {
@@ -240,6 +242,41 @@ export function NotificationProvider({ children }) {
     }
   }, [])
 
+  const loadNotificationDetail = useCallback(async (recipientId) => {
+    const current = notificationsRef.current.find((notification) => notification.recipientId === recipientId)
+    if (!current) {
+      return null
+    }
+
+    if (current.detailLoaded) {
+      return current
+    }
+
+    if (detailInFlightRef.current.has(recipientId)) {
+      return current
+    }
+
+    detailInFlightRef.current.add(recipientId)
+
+    try {
+      const wasUnread = !current.readAt
+      const response = await fetchMyNotificationById(recipientId)
+      const updated = {
+        ...response.data,
+        detailLoaded: true,
+      }
+
+      setNotifications((existing) => mergeNotification(existing, updated))
+      if (wasUnread && updated.readAt) {
+        setUnreadCount((currentCount) => Math.max(0, currentCount - 1))
+      }
+
+      return updated
+    } finally {
+      detailInFlightRef.current.delete(recipientId)
+    }
+  }, [])
+
   const deleteNotificationById = useCallback(async (notificationId) => {
     if (!notificationId || deleteInFlightRef.current.has(notificationId)) {
       return
@@ -301,6 +338,7 @@ export function NotificationProvider({ children }) {
       setNotificationSearchQuery,
       markNotificationViewed,
       markNotificationRead,
+      loadNotificationDetail,
       deleteNotificationById,
     }),
     [
@@ -310,6 +348,7 @@ export function NotificationProvider({ children }) {
       isStreamConnected,
       loadNotifications,
       loadMoreNotifications,
+      loadNotificationDetail,
       deleteNotificationById,
       markNotificationRead,
       markNotificationViewed,
